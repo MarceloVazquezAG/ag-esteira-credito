@@ -187,6 +187,9 @@ tbody tr.row:hover td{background:rgba(0,200,190,.04);}
 .fld textarea{resize:vertical;min-height:74px;}
 .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(0,200,190,.1);}
 .fld input[readonly]{color:var(--txt2);}
+.fld input:disabled,.fld select:disabled,.fld textarea:disabled,.fi-input:disabled{opacity:.65;cursor:not-allowed;color:var(--txt2);}
+button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:none!important;}
+.locked{opacity:.65;cursor:not-allowed;pointer-events:none;}
 .fld select option{background:#040e1b;}
 
 /* DIRECTOR VOTE CARDS */
@@ -467,6 +470,7 @@ tbody tr.row:hover td{background:rgba(0,200,190,.04);}
         <div class="ps" id="p3"><div class="ps-num">3</div><div class="ps-lbl">Financeiro</div><div class="ps-sub" id="p3s"></div></div>
         <div class="ps" id="p4"><div class="ps-num">4</div><div class="ps-lbl">Diretoria</div><div class="ps-sub" id="p4s"></div></div>
       </div>
+      <div id="perm-note" style="display:none;background:var(--blue-dim);border:1px solid var(--bdr);border-radius:var(--rs);padding:10px 14px;margin-bottom:12px;font-size:11px;color:var(--txt2);"></div>
 
       <!-- E1: COMERCIAL -->
       <div class="stg" id="sec-com">
@@ -713,6 +717,58 @@ function getInviteLink(inv){
   return `${location.origin}${location.pathname}?invite=${encodeURIComponent(inv.token)}&d=${encodeInviteData(inv)}`;
 }
 
+function isAdmin(){
+  return !!SESSION&&(SESSION.perfil==='Admin'||SESSION.area==='Todas');
+}
+
+function stageForArea(area){
+  return {'Comercial':'comercial','Análise de Crédito':'credito','Financeiro':'financeiro','Diretoria':'diretoria','Todas':'todas'}[area]||'';
+}
+
+function canEditStage(stage){
+  if(isAdmin())return true;
+  return stageForArea(SESSION?.area)===stage;
+}
+
+function canEditCurrent(p){
+  return !!p&&canEditStage(p.status)&&!['aprovado','reprovado'].includes(p.status);
+}
+
+function setSectionLocked(sectionId,locked){
+  const sec=g(sectionId);if(!sec)return;
+  sec.querySelectorAll('input,select,textarea,button').forEach(el=>{
+    if(el.id==='f-proto')return;
+    el.disabled=locked;
+  });
+  sec.querySelectorAll('.dec-btn,.doc-item,.upload-zone').forEach(el=>el.classList.toggle('locked',locked));
+}
+
+function applyPermissions(p){
+  const current=p?.status;
+  const canCom=canEditStage('comercial')&&current==='comercial';
+  const canCre=canEditStage('credito')&&current==='credito';
+  const canFin=canEditStage('financeiro')&&current==='financeiro';
+  const canDir=canEditStage('diretoria')&&current==='diretoria';
+  setSectionLocked('sec-com',!canCom);
+  setSectionLocked('sec-cre',!canCre);
+  setSectionLocked('sec-fin',!canFin);
+  const docsLocked=!canEditCurrent(p);
+  const fileInput=g('file-input');if(fileInput)fileInput.disabled=docsLocked;
+  g('sec-docs')?.querySelector('.upload-zone')?.classList.toggle('locked',docsLocked);
+  g('btn-avan').disabled=!canEditCurrent(p)||current==='diretoria';
+  g('btn-avan').style.display=canEditCurrent(p)&&current!=='diretoria'?'inline-flex':'none';
+  const saveBtn=document.querySelector('button[onclick="salvar()"]');
+  if(saveBtn)saveBtn.disabled=!canEditCurrent(p);
+  g('my-vote-section').style.pointerEvents=canDir?'auto':'none';
+  g('my-vote-section').style.opacity=canDir?'1':'.45';
+  const note=g('perm-note');
+  if(note){
+    note.style.display='block';
+    if(canEditCurrent(p))note.innerHTML=isAdmin()?`Acesso Admin: você pode editar esta etapa e avançar o processo.`:`Sua área pode editar esta etapa (${SN[p.status]||p.status}) e avançar o processo.`;
+    else note.innerHTML=`Modo visualização: você pode acompanhar a esteira, mas só edita processos quando eles estiverem na sua área.`;
+  }
+}
+
 // ── AUTH ──
 function initUsers(){
   if(!USERS){
@@ -732,6 +788,7 @@ function startSession(user){
   SESSION=user;sessionStorage.setItem('ag_esteira_session',JSON.stringify(user));
   g('login-screen').style.display='none';g('invite-screen').style.display='none';g('app').style.display='block';
   g('sb-uname').textContent=user.nome;g('sb-urole').textContent=user.perfil+' · '+user.area;
+  g('nav-cfg').style.display=isAdmin()?'flex':'none';
   updateMyBadge();renderNotifDot();renderLista();
 }
 
@@ -779,6 +836,7 @@ function confirmarConvite(){
 function gerarToken(){return Math.random().toString(36).slice(2)+Date.now().toString(36)+Math.random().toString(36).slice(2);}
 
 function criarConvite(){
+  if(!isAdmin()){flash('Somente Admin pode convidar usuários.','w');return;}
   const nome=r('mu-nome').trim(),email=r('mu-email').trim().toLowerCase();
   const perfil=r('mu-perfil'),area=r('mu-area');
   if(!nome||!email||!perfil||!area){flash('Preencha todos os campos','w');return;}
@@ -814,7 +872,7 @@ function openInviteEmail(){
   location.href=`mailto:${encodeURIComponent(window._lastInviteEmail)}?subject=${subject}&body=${body}`;
 }
 
-function openModalUser(){g('modal-user').classList.add('open');['mu-nome','mu-email'].forEach(id=>v(id,''));v('mu-perfil','');v('mu-area','');g('invite-result').style.display='none';}
+function openModalUser(){if(!isAdmin()){flash('Somente Admin pode convidar usuários.','w');return;}g('modal-user').classList.add('open');['mu-nome','mu-email'].forEach(id=>v(id,''));v('mu-perfil','');v('mu-area','');g('invite-result').style.display='none';}
 function closeModalUser(){g('modal-user').classList.remove('open');}
 
 // ── SEED ──
@@ -854,9 +912,10 @@ function iso(d){return new Date(Date.now()-d*86400000).toISOString().slice(0,10)
 
 // ── VIEWS ──
 function showView(vw){
+  if(vw==='config'&&!isAdmin()){flash('Acesso restrito ao administrador.','w');vw='lista';}
   ['lista','detalhe','config'].forEach(x=>{const el=g('view-'+x);if(el)el.style.display='none';});
   g('nav-lista').classList.remove('active');g('nav-cfg').classList.remove('active');
-  if(vw==='lista'){g('view-lista').style.display='block';g('nav-lista').classList.add('active');g('btn-novo').style.display='inline-flex';g('pg-title').textContent='Esteira de Crédito';g('pg-sub').textContent='Workflow de análise e aprovação';renderLista();}
+  if(vw==='lista'){g('view-lista').style.display='block';g('nav-lista').classList.add('active');g('btn-novo').style.display=canEditStage('comercial')?'inline-flex':'none';g('pg-title').textContent='Esteira de Crédito';g('pg-sub').textContent='Workflow de análise e aprovação';renderLista();}
   if(vw==='detalhe'){g('view-detalhe').style.display='block';g('btn-novo').style.display='none';}
   if(vw==='config'){g('view-config').style.display='block';g('nav-cfg').classList.add('active');g('btn-novo').style.display='none';g('pg-title').textContent='Configurações';g('pg-sub').textContent='Usuários, convites e sistema';renderUsers();renderInvites();}
 }
@@ -884,12 +943,13 @@ function renderLista(){
 
 // ── DETALHE ──
 function novoProcesso(){
+  if(!canEditStage('comercial')){flash('Somente Comercial ou Admin pode criar processo.','w');return;}
   const p={id:proto(0),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:DOCS.reduce((o,d)=>({...o,[d]:false}),{}),risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
   DB.push(p);saveDB();curId=p.id;showDetalhe(p);
 }
 
 function openProcesso(id){const p=DB.find(x=>x.id===id);if(p){curId=id;showDetalhe(p);}}
-function showDetalhe(p){showView('detalhe');g('pg-title').textContent=p.id;g('pg-sub').textContent=p.razao||'Novo processo';fillForm(p);renderPipeline(p.status);renderSections(p);}
+function showDetalhe(p){showView('detalhe');g('pg-title').textContent=p.id;g('pg-sub').textContent=p.razao||'Novo processo';fillForm(p);renderPipeline(p.status);renderSections(p);applyPermissions(p);}
 function voltarLista(){showView('lista');}
 
 function fillForm(p){
@@ -914,15 +974,15 @@ function fillForm(p){
 function dcol(v){return v==='Favorável'||v==='Aprovado'?'var(--ok)':v==='Desfavorável'||v==='Reprovado'?'var(--danger)':v==='Condicional'?'var(--warn)':'var(--txt2)';}
 
 function renderSocios(list){g('socios-list').innerHTML=list.length?list.map((s,i)=>`<div class="socio-row"><input value="${s.nome||''}" onchange="updSocio(${i},'nome',this.value)" placeholder="Nome completo"><input value="${s.cpf||''}" onchange="updSocio(${i},'cpf',this.value)" placeholder="CPF" style="width:150px"><button class="socio-rm" onclick="rmSocio(${i})">✕</button></div>`).join(''):'<div style="font-size:11px;color:var(--txt3);padding:5px 0;">Nenhum sócio.</div>';}
-function addSocio(){const p=cur();if(!p)return;p.socios.push({nome:'',cpf:''});saveDB();renderSocios(p.socios);}
-function rmSocio(i){const p=cur();if(!p)return;p.socios.splice(i,1);saveDB();renderSocios(p.socios);}
-function updSocio(i,k,val){const p=cur();if(p&&p.socios[i])p.socios[i][k]=val;}
+function addSocio(){const p=cur();if(!p||!canEditCurrent(p)||!canEditStage('comercial')){flash('Você não pode editar a etapa Comercial.','w');return;}p.socios.push({nome:'',cpf:''});saveDB();renderSocios(p.socios);applyPermissions(p);}
+function rmSocio(i){const p=cur();if(!p||!canEditCurrent(p)||!canEditStage('comercial')){flash('Você não pode editar a etapa Comercial.','w');return;}p.socios.splice(i,1);saveDB();renderSocios(p.socios);applyPermissions(p);}
+function updSocio(i,k,val){const p=cur();if(p&&p.socios[i]&&canEditCurrent(p)&&canEditStage('comercial'))p.socios[i][k]=val;}
 
 function renderDocs(docs){g('doc-list').innerHTML=DOCS.map(d=>`<div class="doc-item${docs[d]?' chk':''}" onclick="toggleDoc('${d}',this)"><input type="checkbox" ${docs[d]?'checked':''} onclick="event.stopPropagation()"><span>${d}</span></div>`).join('');}
-function toggleDoc(d,el){const p=cur();if(!p)return;p.docs[d]=!p.docs[d];el.classList.toggle('chk',p.docs[d]);el.querySelector('input').checked=p.docs[d];saveDB();}
+function toggleDoc(d,el){const p=cur();if(!canEditCurrent(p)){flash('Você só pode anexar/documentar na sua etapa.','w');return;}p.docs[d]=!p.docs[d];el.classList.toggle('chk',p.docs[d]);el.querySelector('input').checked=p.docs[d];saveDB();}
 
 function renderRisk(risk){g('risk-matrix').innerHTML=RISK_ITEMS.map(item=>`<div class="risk-row"><div class="risk-lbl">${item}</div><select class="risk-sel" onchange="updRisk('${item}',this.value)">${['Baixo','Médio','Alto','N/A'].map(o=>`<option${risk[item]===o?' selected':''}>${o}</option>`).join('')}</select></div>`).join('');}
-function updRisk(item,val){const p=cur();if(p)p.risk[item]=val;}
+function updRisk(item,val){const p=cur();if(p&&canEditStage('credito')&&p.status==='credito')p.risk[item]=val;}
 
 // ── DIRETORIA 3 VOTOS ──
 function renderDirVotes(p){
@@ -930,6 +990,7 @@ function renderDirVotes(p){
   const directors=USERS.filter(u=>u.area==='Diretoria'&&u.active);
   const votes=p.dir_votes||[];
   directors.forEach(d=>{if(!votes.find(v=>v.login===d.email))votes.push({login:d.email,nome:d.nome,decision:null,obs:'',ts:null});});
+  if(isAdmin()&&SESSION&&!votes.find(v=>v.login===SESSION.email))votes.push({login:SESSION.email,nome:SESSION.nome,decision:null,obs:'',ts:null});
   // garantir ao menos 3 slots demo se não houver diretores
   while(votes.length<3)votes.push({login:`demo${votes.length+1}@ag`,nome:`Sócio ${votes.length+1}`,decision:null,obs:'',ts:null});
   p.dir_votes=votes;
@@ -947,7 +1008,7 @@ function renderDirVotes(p){
   }).join('');
 
   const myVote=SESSION?votes.find(v=>v.login===SESSION.email):null;
-  const isDir=SESSION&&(SESSION.perfil==='Diretor'||SESSION.area==='Diretoria');
+  const isDir=SESSION&&(isAdmin()||SESSION.perfil==='Diretor'||SESSION.area==='Diretoria');
   const isActive=p.status==='diretoria';
   if(isDir&&isActive&&myVote&&!myVote.decision){g('my-vote-section').style.display='block';g('voted-msg').style.display='none';}
   else if(isDir&&myVote&&myVote.decision){g('my-vote-section').style.display='none';g('voted-msg').style.display='block';g('voted-msg').innerHTML=`Você já votou: <strong style="color:${dcol(myVote.decision)}">${myVote.decision}</strong> em ${myVote.ts}`;}
@@ -957,6 +1018,7 @@ function renderDirVotes(p){
 
 function castVote(decision){
   const p=cur();if(!p||!SESSION)return;
+  if(!canEditStage('diretoria')||p.status!=='diretoria'){flash('Você não pode votar nesta etapa.','w');return;}
   let vote=p.dir_votes.find(v=>v.login===SESSION.email);
   if(!vote){p.dir_votes.push({login:SESSION.email,nome:SESSION.nome,decision:null,obs:'',ts:null});vote=p.dir_votes[p.dir_votes.length-1];}
   vote.decision=decision;vote.obs=r('dir-obs-mine');vote.ts=new Date().toLocaleString('pt-BR');
@@ -1001,7 +1063,9 @@ function renderSections(p){
 
 // ── AVANÇAR ──
 function avancar(){
-  salvar(false);const p=cur();if(!p)return;
+  const p=cur();if(!p)return;
+  if(!canEditCurrent(p)){flash('Você só pode avançar processos da sua etapa.','w');return;}
+  salvar(false);
   const idx=STAGES.indexOf(p.status);
   if(idx<0||p.status==='aprovado'||p.status==='reprovado'||p.status==='diretoria')return;
   if(p.status==='comercial'&&!p.razao){flash('Informe a Razão Social','w');return;}
@@ -1011,12 +1075,14 @@ function avancar(){
   p.status=next;saveDB();
   addNotif('stage',`🔄 <strong>${p.razao||p.id}</strong> avançou para <strong>${SN[next]}</strong> — ação necessária`,STAGE_AREA[next]);
   if(next==='diretoria')renderDirVotes(p);
-  renderPipeline(p.status);renderSections(p);
+  renderPipeline(p.status);renderSections(p);applyPermissions(p);
   flash(`Avançado para ${SN[next]}`);
 }
 
 function selDec(stage,dec,el){
   const p=cur();if(!p)return;
+  const need={cre:'credito',fin:'financeiro'}[stage];
+  if(!canEditCurrent(p)||!canEditStage(need)){flash('Você não pode editar esta decisão.','w');return;}
   el.parentElement.querySelectorAll('.dec-btn').forEach(b=>b.classList.remove('on'));el.classList.add('on');
   const mp={cre:{f:'cr_dec',h:'hd-cr-dec'},fin:{f:'fi_dec',h:'hd-fi-dec'}};
   p[mp[stage].f]=dec;v(mp[stage].h,dec);saveDB();
@@ -1024,20 +1090,27 @@ function selDec(stage,dec,el){
 
 function salvar(showMsg=true){
   const p=cur();if(!p)return;
-  p.razao=r('f-razao');p.cnpj=r('f-cnpj');p.abertura=r('f-aber');p.atividade=r('f-ativ');p.contato=r('f-cont');
-  p.tipo_op=r('f-tipo');p.limite=r('f-limite');p.prazo=r('f-prazo');p.sacados=r('f-sacados');p.narrativa=r('f-narr');
-  p.cr_sacados=r('f-cr-sac');p.cr_parecer=r('f-cr-par');p.cr_dec=r('hd-cr-dec');
-  p.fat=r('fi-fat');p.cmv=r('fi-cmv');p.mb=r('fi-mb');p.pl=r('fi-pl');p.div=r('fi-div');p.dup=r('fi-dup');
-  p.fi_analista=r('fi-anal');p.fi_data=r('fi-data');p.fi_parecer=r('fi-par');p.fi_dec=r('hd-fi-dec');
+  if(!canEditCurrent(p)){if(showMsg)flash('Você só pode editar processos da sua etapa.','w');return;}
+  if(canEditStage('comercial')&&p.status==='comercial'){
+    p.razao=r('f-razao');p.cnpj=r('f-cnpj');p.abertura=r('f-aber');p.atividade=r('f-ativ');p.contato=r('f-cont');
+    p.tipo_op=r('f-tipo');p.limite=r('f-limite');p.prazo=r('f-prazo');p.sacados=r('f-sacados');p.narrativa=r('f-narr');
+  }
+  if(canEditStage('credito')&&p.status==='credito'){
+    p.cr_sacados=r('f-cr-sac');p.cr_parecer=r('f-cr-par');p.cr_dec=r('hd-cr-dec');
+  }
+  if(canEditStage('financeiro')&&p.status==='financeiro'){
+    p.fat=r('fi-fat');p.cmv=r('fi-cmv');p.mb=r('fi-mb');p.pl=r('fi-pl');p.div=r('fi-div');p.dup=r('fi-dup');
+    p.fi_analista=r('fi-anal');p.fi_data=r('fi-data');p.fi_parecer=r('fi-par');p.fi_dec=r('hd-fi-dec');
+  }
   g('dir-cr-dec').textContent=p.cr_dec||'Aguardando';g('dir-cr-dec').style.color=dcol(p.cr_dec);
   g('dir-cr-par').textContent=p.cr_parecer||'—';
   g('dir-fi-dec').textContent=p.fi_dec||'Aguardando';g('dir-fi-dec').style.color=dcol(p.fi_dec);
   g('dir-fi-par').textContent=p.fi_parecer||'—';
   if(p.razao)g('res-com').innerHTML=`<strong style="color:var(--blue)">${p.razao}</strong> · ${p.tipo_op} · R$ ${p.limite}`;
-  saveDB();if(showMsg)flash('Salvo!');
+  saveDB();applyPermissions(p);if(showMsg)flash('Salvo!');
 }
 
-function reativar(id){const p=DB.find(x=>x.id===id);if(!p)return;p.status='comercial';p.dir_votes=[];saveDB();openProcesso(id);flash('Processo reativado!');}
+function reativar(id){if(!isAdmin()){flash('Somente Admin pode reativar processo.','w');return;}const p=DB.find(x=>x.id===id);if(!p)return;p.status='comercial';p.dir_votes=[];saveDB();openProcesso(id);flash('Processo reativado!');}
 
 // ── ATTACHMENTS ──
 function renderAttach(list){
@@ -1047,6 +1120,7 @@ function renderAttach(list){
 }
 function handleFiles(input){
   const p=cur();if(!p)return;
+  if(!canEditCurrent(p)){flash('Você só pode anexar arquivos na sua etapa.','w');input.value='';return;}
   Array.from(input.files).forEach(file=>{
     if(file.size>1048576){flash(`"${file.name}" excede 1MB`,'w');return;}
     const rd=new FileReader();
@@ -1055,7 +1129,7 @@ function handleFiles(input){
   });input.value='';
 }
 function dlFile(i){const p=cur();if(!p)return;const a=p.attachments[i];if(!a||!a.data)return;const l=document.createElement('a');l.href=a.data;l.download=a.name;l.click();}
-function rmFile(i){const p=cur();if(!p)return;p.attachments.splice(i,1);saveDB();renderAttach(p.attachments);flash('Removido.','w');}
+function rmFile(i){const p=cur();if(!p)return;if(!canEditCurrent(p)){flash('Você só pode remover anexos na sua etapa.','w');return;}p.attachments.splice(i,1);saveDB();renderAttach(p.attachments);flash('Removido.','w');}
 function fmtSize(b){return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB';}
 
 // ── NOTIFICAÇÕES ──
@@ -1093,7 +1167,7 @@ function renderInvites(){
   if(!active.length){g('invites-body').innerHTML=`<tr><td colspan="5" class="empty-td" style="padding:20px">Nenhum convite pendente</td></tr>`;return;}
   g('invites-body').innerHTML=active.map(i=>{const link=getInviteLink(i);return `<tr><td style="color:var(--blue)">${i.email}</td><td>${i.perfil}</td><td>${i.area}</td><td style="color:var(--warn)">${new Date(i.expires).toLocaleDateString('pt-BR')}</td><td><button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${link}');flash('Link copiado!')">📋 Copiar</button></td></tr>`;}).join('');
 }
-function rmUser(i){if(!confirm('Remover?'))return;USERS.splice(i,1);saveUsers();renderUsers();flash('Removido.','w');}
+function rmUser(i){if(!isAdmin()){flash('Somente Admin pode remover usuários.','w');return;}if(!confirm('Remover?'))return;USERS.splice(i,1);saveUsers();renderUsers();flash('Removido.','w');}
 
 // ── UTILS ──
 function g(id){return document.getElementById(id);}
