@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AG Antecipa · Esteira de Crédito</title>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 :root{
   --bg:#060f1a;--bg-s:#07121e;--bg-c:#0a1828;--bg-c2:#0c1e30;--bg-in:#060f1a;
@@ -636,17 +635,11 @@ tbody tr.row:hover td{background:rgba(0,200,190,.04);}
         </table></div>
       </div>
       <div class="settings-sec">
-        <div class="sec-hd"><div class="sec-title"><div class="sec-dot"></div>Envio de E-mail (EmailJS)</div></div>
+        <div class="sec-hd"><div class="sec-title"><div class="sec-dot"></div>Convite Manual</div></div>
         <div style="padding:18px;">
           <div style="background:var(--blue-dim);border:1px solid var(--bdr);border-radius:var(--rs);padding:12px 14px;font-size:11px;color:var(--txt2);margin-bottom:14px;line-height:1.6;">
-            Acesse <strong style="color:var(--blue)">emailjs.com</strong> → crie conta gratuita → conecte Gmail → crie template com variáveis: <code>{{to_name}}</code> <code>{{to_email}}</code> <code>{{invite_link}}</code> <code>{{perfil}}</code> <code>{{area}}</code>. Sem config, o link é exibido na tela para copiar.
+            Para liberar acesso, clique em <strong style="color:var(--blue)">Convidar Usuário</strong>, preencha os dados e copie o link gerado. Envie esse link pelo seu e-mail, WhatsApp ou Teams. Não precisa configurar EmailJS.
           </div>
-          <div class="fg3" style="margin-bottom:13px;">
-            <div class="fld"><label>Public Key</label><input id="ejs-key" placeholder="user_xxxxxxxxx"></div>
-            <div class="fld"><label>Service ID</label><input id="ejs-svc" placeholder="service_xxxxxxx"></div>
-            <div class="fld"><label>Template ID</label><input id="ejs-tpl" placeholder="template_xxxxxxx"></div>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="saveEJSConfig()">Salvar</button>
         </div>
       </div>
     </div>
@@ -672,7 +665,7 @@ tbody tr.row:hover td{background:rgba(0,200,190,.04);}
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeModalUser()">Cancelar</button>
-      <button class="btn btn-primary" onclick="criarConvite()">Enviar Convite</button>
+      <button class="btn btn-primary" onclick="criarConvite()">Gerar Link</button>
     </div>
   </div>
 </div>
@@ -689,7 +682,6 @@ let DB      =JSON.parse(localStorage.getItem('ag_esteira_db')||'[]');
 let USERS   =JSON.parse(localStorage.getItem('ag_esteira_users')||'null');
 let INVITES =JSON.parse(localStorage.getItem('ag_esteira_invites')||'[]');
 let NOTIFS  =JSON.parse(localStorage.getItem('ag_esteira_notifs')||'[]');
-let EJSCFG  =JSON.parse(localStorage.getItem('ag_esteira_ejs')||'{}');
 let SESSION =JSON.parse(sessionStorage.getItem('ag_esteira_session')||'null');
 let curId=null,filterAtual='',notifTabMode='mine',notifOpen=false;
 
@@ -797,20 +789,29 @@ function criarConvite(){
   INVITES.push(invite);
   saveInvites();
   const link=getInviteLink(invite);
-  if(EJSCFG.key&&EJSCFG.svc&&EJSCFG.tpl){
-    emailjs.init(EJSCFG.key);
-    emailjs.send(EJSCFG.svc,EJSCFG.tpl,{to_name:nome,to_email:email,invite_link:link,perfil,area,from_name:'AG Antecipa'})
-      .then(()=>showInviteResult(link,true,email))
-      .catch(()=>showInviteResult(link,false,email));
-  } else {
-    showInviteResult(link,false,email);
-  }
+  showInviteResult(link,email,nome);
 }
 
-function showInviteResult(link,sent,email){
+function showInviteResult(link,email,nome){
+  window._lastInviteLink=link;
+  window._lastInviteEmail=email;
+  window._lastInviteNome=nome;
   const el=g('invite-result');el.style.display='block';
-  el.innerHTML=sent?`✅ Convite enviado para <strong>${email}</strong>!`:`⚠️ EmailJS não configurado. Copie e envie o link:<br><br><strong style="font-size:10px">${link}</strong>`;
+  el.innerHTML=`Convite gerado para <strong>${email}</strong>.<br>Copie e envie este link para o usuário definir a senha:<br><br><strong style="font-size:10px">${link}</strong><br><br><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm" onclick="copyInviteLink()">Copiar Link</button><button class="btn btn-ghost btn-sm" onclick="openInviteEmail()">Abrir E-mail</button></div>`;
   renderUsers();renderInvites();
+}
+
+function copyInviteLink(){
+  if(!window._lastInviteLink)return;
+  navigator.clipboard.writeText(window._lastInviteLink);
+  flash('Link copiado!');
+}
+
+function openInviteEmail(){
+  if(!window._lastInviteLink||!window._lastInviteEmail)return;
+  const subject=encodeURIComponent('Convite de acesso - AG Antecipa');
+  const body=encodeURIComponent(`Olá ${window._lastInviteNome||''},\n\nUse o link abaixo para criar sua senha e acessar a Esteira de Crédito da AG Antecipa:\n\n${window._lastInviteLink}\n\nO convite expira em 48 horas.`);
+  location.href=`mailto:${encodeURIComponent(window._lastInviteEmail)}?subject=${subject}&body=${body}`;
 }
 
 function openModalUser(){g('modal-user').classList.add('open');['mu-nome','mu-email'].forEach(id=>v(id,''));v('mu-perfil','');v('mu-area','');g('invite-result').style.display='none';}
@@ -857,7 +858,7 @@ function showView(vw){
   g('nav-lista').classList.remove('active');g('nav-cfg').classList.remove('active');
   if(vw==='lista'){g('view-lista').style.display='block';g('nav-lista').classList.add('active');g('btn-novo').style.display='inline-flex';g('pg-title').textContent='Esteira de Crédito';g('pg-sub').textContent='Workflow de análise e aprovação';renderLista();}
   if(vw==='detalhe'){g('view-detalhe').style.display='block';g('btn-novo').style.display='none';}
-  if(vw==='config'){g('view-config').style.display='block';g('nav-cfg').classList.add('active');g('btn-novo').style.display='none';g('pg-title').textContent='Configurações';g('pg-sub').textContent='Usuários, convites e sistema';renderUsers();renderInvites();loadEJSForm();}
+  if(vw==='config'){g('view-config').style.display='block';g('nav-cfg').classList.add('active');g('btn-novo').style.display='none';g('pg-title').textContent='Configurações';g('pg-sub').textContent='Usuários, convites e sistema';renderUsers();renderInvites();}
 }
 
 // ── LISTA ──
@@ -1093,8 +1094,6 @@ function renderInvites(){
   g('invites-body').innerHTML=active.map(i=>{const link=getInviteLink(i);return `<tr><td style="color:var(--blue)">${i.email}</td><td>${i.perfil}</td><td>${i.area}</td><td style="color:var(--warn)">${new Date(i.expires).toLocaleDateString('pt-BR')}</td><td><button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${link}');flash('Link copiado!')">📋 Copiar</button></td></tr>`;}).join('');
 }
 function rmUser(i){if(!confirm('Remover?'))return;USERS.splice(i,1);saveUsers();renderUsers();flash('Removido.','w');}
-function saveEJSConfig(){EJSCFG={key:r('ejs-key').trim(),svc:r('ejs-svc').trim(),tpl:r('ejs-tpl').trim()};localStorage.setItem('ag_esteira_ejs',JSON.stringify(EJSCFG));flash('Config salva!');}
-function loadEJSForm(){v('ejs-key',EJSCFG.key||'');v('ejs-svc',EJSCFG.svc||'');v('ejs-tpl',EJSCFG.tpl||'');}
 
 // ── UTILS ──
 function g(id){return document.getElementById(id);}
