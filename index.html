@@ -231,13 +231,18 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
 .socio-rm:hover{color:var(--danger);}
 
 /* DOCS CHECK */
-.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-.doc-item{display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid var(--bdr2);border-radius:var(--rs);cursor:pointer;transition:all var(--tr);background:var(--bg-in);}
+.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.doc-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;padding:8px 11px;border:1px solid var(--bdr2);border-radius:var(--rs);transition:all var(--tr);background:var(--bg-in);}
 .doc-item:hover{border-color:var(--blue);background:var(--blue-dim);}
 .doc-item.chk{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.05);}
-.doc-item input[type="checkbox"]{accent-color:var(--blue);cursor:pointer;flex-shrink:0;}
-.doc-item span{font-size:11px;color:var(--txt2);}
-.doc-item.chk span{color:var(--ok);}
+.doc-item input[type="checkbox"]{accent-color:var(--blue);flex-shrink:0;}
+.doc-main{min-width:0;}
+.doc-name{font-size:11px;color:var(--txt2);line-height:1.35;}
+.doc-item.chk .doc-name{color:var(--ok);}
+.doc-meta{font-size:10px;color:var(--txt3);margin-top:2px;}
+.doc-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.doc-file-input{display:none;}
+.doc-select{max-width:170px;background:var(--bg-c);border:1px solid var(--bdr2);border-radius:var(--rs);color:var(--txt1);font-size:10px;padding:5px 7px;}
 
 /* RISK */
 .risk-row{display:grid;grid-template-columns:1fr 130px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--bdr2);}
@@ -588,12 +593,12 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
         </div>
       </div>
 
-      <!-- DOCS -->
+      <!-- DOCS COMPLEMENTARES -->
       <div class="stg" id="sec-docs">
         <div class="stg-hd">
           <div class="stg-ttl">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--blue)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            Documentos Anexados
+            Docs Complementares
           </div>
           <div id="attach-count" style="font-size:11px;color:var(--txt3)"></div>
         </div>
@@ -602,7 +607,7 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
           <label class="upload-zone">
             <input type="file" id="file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onchange="handleFiles(this)">
             <div style="font-size:20px;margin-bottom:6px;color:var(--txt3)">📎</div>
-            <div style="font-size:11px;color:var(--txt2);"><strong style="color:var(--blue)">Clique para anexar</strong> ou arraste arquivos</div>
+            <div style="font-size:11px;color:var(--txt2);"><strong style="color:var(--blue)">Clique para anexar</strong> documentos complementares</div>
             <div style="font-size:10px;color:var(--txt3);margin-top:3px;">PDF, Word, Excel, imagens · máx. 1MB</div>
           </label>
         </div>
@@ -675,7 +680,8 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
 </div>
 
 <script>
-const DOCS=['Contrato Social / Estatuto','Cartão CNPJ','RG e CPF dos Sócios','Balanço Patrimonial (último)','DRE (último exercício)','Declaração IR PJ','Faturamento (últimos 3 meses)','Endividamento Bancário','Certidão Negativa Federal','Certidão Negativa Estadual','Notas Fiscais (amostra)','Lista de Sacados','Proposta Comercial Assinada'];
+const DOCS=['Contrato Social / Estatuto','Cartão CNPJ','RG e CPF dos Sócios','Balanço Patrimonial (último)','DRE (último exercício)','Declaração IR PJ','Faturamento (últimos 12 meses)','Endividamento Bancário','Certidão Negativa Federal','Certidão Negativa Estadual','Notas Fiscais (amostra)','Lista de Sacados','Proposta Comercial Assinada'];
+const DOC_ALIASES={'Faturamento (últimos 12 meses)':'Faturamento (últimos 3 meses)'};
 const RISK_ITEMS=['Concentração de Sacados','Prazo de Recebimento','Diversificação de Atividade','Histórico de Inadimplência','Capacidade de Reposição','Gestão Financeira','Porte do Cedente','Dependência de Clientes','Situação Fiscal','Garantias Oferecidas'];
 const STAGES=['comercial','credito','financeiro','diretoria'];
 const SN={comercial:'Comercial',credito:'Crédito',financeiro:'Financeiro',diretoria:'Diretoria',aprovado:'Aprovado',reprovado:'Reprovado'};
@@ -734,13 +740,36 @@ function canEditCurrent(p){
   return !!p&&canEditStage(p.status)&&!['aprovado','reprovado'].includes(p.status);
 }
 
+function normalizeDocs(p){
+  if(!p)return;
+  p.docs=p.docs||{};
+  p.docFiles=p.docFiles||{};
+  DOCS.forEach(d=>{
+    const old=DOC_ALIASES[d];
+    if(p.docs[old]!==undefined&&p.docs[d]===undefined)p.docs[d]=p.docs[old];
+    if(!Array.isArray(p.docFiles[d]))p.docFiles[d]=[];
+    p.docs[d]=p.docFiles[d].length>0;
+  });
+}
+
+function requiredDocCount(p){
+  normalizeDocs(p);
+  return DOCS.reduce((n,d)=>n+(p.docFiles[d]?.length||0),0);
+}
+
+function missingRequiredDocs(p){
+  normalizeDocs(p);
+  return DOCS.filter(d=>(p.docFiles[d]||[]).length===0);
+}
+
 function setSectionLocked(sectionId,locked){
   const sec=g(sectionId);if(!sec)return;
   sec.querySelectorAll('input,select,textarea,button').forEach(el=>{
     if(el.id==='f-proto')return;
+    if(el.closest('.doc-actions'))return;
     el.disabled=locked;
   });
-  sec.querySelectorAll('.dec-btn,.doc-item,.upload-zone').forEach(el=>el.classList.toggle('locked',locked));
+  sec.querySelectorAll('.dec-btn,.upload-zone').forEach(el=>el.classList.toggle('locked',locked));
 }
 
 function applyPermissions(p){
@@ -883,7 +912,7 @@ function seedDemo(){
     limite:'1.500.000,00',prazo:'12',status:st,
     socios:[{nome:'Carlos Eduardo Lima',cpf:'123.456.789-00'}],
     sacados:'Grupo Martins SA\nAtacado Brasil Ltda',narrativa:'5 anos de relacionamento.',
-    docs:DOCS.reduce((o,d)=>({...o,[d]:Math.random()>.35}),{}),
+    docs:DOCS.reduce((o,d)=>({...o,[d]:false}),{}),docFiles:DOCS.reduce((o,d)=>({...o,[d]:[]}),{}),
     risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),
     cr_sacados:'Carteira pulverizada.',cr_parecer:crD?'Risco controlado.':'',cr_dec:crD||'',
     fat:'4.200.000,00',cmv:'2.900.000,00',mb:'31',pl:'1.200.000,00',div:'380.000,00',dup:'620.000,00',
@@ -928,7 +957,7 @@ function renderLista(){
   const list=filterAtual?DB.filter(p=>p.status===filterAtual):DB;
   g('lst-count').textContent=`${list.length} processo${list.length!==1?'s':''}`;
   if(!list.length){g('lst-body').innerHTML=`<tr><td colspan="9" class="empty-td">Nenhum processo.</td></tr>`;return;}
-  g('lst-body').innerHTML=list.map(p=>`<tr class="row" onclick="openProcesso('${p.id}')">
+  g('lst-body').innerHTML=list.map(p=>{normalizeDocs(p);const totalDocs=requiredDocCount(p)+(p.attachments||[]).length;return `<tr class="row" onclick="openProcesso('${p.id}')">
     <td style="font-family:monospace;color:var(--blue);font-size:11px">${p.id}</td>
     <td style="font-weight:600">${p.razao||'—'}</td>
     <td style="color:var(--txt2);font-family:monospace;font-size:11px">${p.cnpj||'—'}</td>
@@ -936,15 +965,15 @@ function renderLista(){
     <td>${p.limite?'R$ '+p.limite:'—'}</td>
     <td><span class="sbadge ${SC[p.status]||'sb-comercial'}">${SN[p.status]||p.status}</span></td>
     <td style="color:var(--txt2)">${p.abertura||'—'}</td>
-    <td style="color:${(p.attachments||[]).length?'var(--blue)':'var(--txt3)'}">${(p.attachments||[]).length}</td>
+    <td style="color:${totalDocs?'var(--blue)':'var(--txt3)'}">${totalDocs}</td>
     <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openProcesso('${p.id}')">Abrir →</button></td>
-  </tr>`).join('');
+  </tr>`}).join('');
 }
 
 // ── DETALHE ──
 function novoProcesso(){
   if(!canEditStage('comercial')){flash('Somente Comercial ou Admin pode criar processo.','w');return;}
-  const p={id:proto(0),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:DOCS.reduce((o,d)=>({...o,[d]:false}),{}),risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
+  const p={id:proto(0),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:DOCS.reduce((o,d)=>({...o,[d]:false}),{}),docFiles:DOCS.reduce((o,d)=>({...o,[d]:[]}),{}),risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
   DB.push(p);saveDB();curId=p.id;showDetalhe(p);
 }
 
@@ -953,6 +982,7 @@ function showDetalhe(p){showView('detalhe');g('pg-title').textContent=p.id;g('pg
 function voltarLista(){showView('lista');}
 
 function fillForm(p){
+  normalizeDocs(p);
   v('f-proto',p.id);v('f-aber',p.abertura||'');v('f-razao',p.razao||'');v('f-cnpj',p.cnpj||'');
   v('f-ativ',p.atividade||'');v('f-cont',p.contato||'');v('f-tipo',p.tipo_op||'Convencional');
   v('f-limite',p.limite||'');v('f-prazo',p.prazo||'');v('f-sacados',p.sacados||'');v('f-narr',p.narrativa||'');
@@ -961,7 +991,7 @@ function fillForm(p){
   v('fi-pl',p.pl||'');v('fi-div',p.div||'');v('fi-dup',p.dup||'');
   v('fi-anal',p.fi_analista||'');v('fi-data',p.fi_data||'');
   v('fi-par',p.fi_parecer||'');v('hd-fi-dec',p.fi_dec||'');
-  renderSocios(p.socios||[]);renderDocs(p.docs||{});renderRisk(p.risk||{});renderAttach(p.attachments||[]);
+  renderSocios(p.socios||[]);renderDocs();renderRisk(p.risk||{});renderAttach(p.attachments||[]);
   renderDirVotes(p);
   g('res-com').innerHTML=p.razao?`<strong style="color:var(--blue)">${p.razao}</strong> · ${p.tipo_op||''} · R$ ${p.limite||'—'}`:'Aguardando dados.';
   g('dir-cr-dec').textContent=p.cr_dec||'Aguardando';g('dir-cr-dec').style.color=dcol(p.cr_dec);
@@ -978,8 +1008,59 @@ function addSocio(){const p=cur();if(!p||!canEditCurrent(p)||!canEditStage('come
 function rmSocio(i){const p=cur();if(!p||!canEditCurrent(p)||!canEditStage('comercial')){flash('Você não pode editar a etapa Comercial.','w');return;}p.socios.splice(i,1);saveDB();renderSocios(p.socios);applyPermissions(p);}
 function updSocio(i,k,val){const p=cur();if(p&&p.socios[i]&&canEditCurrent(p)&&canEditStage('comercial'))p.socios[i][k]=val;}
 
-function renderDocs(docs){g('doc-list').innerHTML=DOCS.map(d=>`<div class="doc-item${docs[d]?' chk':''}" onclick="toggleDoc('${d}',this)"><input type="checkbox" ${docs[d]?'checked':''} onclick="event.stopPropagation()"><span>${d}</span></div>`).join('');}
-function toggleDoc(d,el){const p=cur();if(!canEditCurrent(p)){flash('Você só pode anexar/documentar na sua etapa.','w');return;}p.docs[d]=!p.docs[d];el.classList.toggle('chk',p.docs[d]);el.querySelector('input').checked=p.docs[d];saveDB();}
+function renderDocs(){
+  const p=cur();if(!p)return;
+  normalizeDocs(p);
+  g('doc-list').innerHTML=DOCS.map((d,i)=>{
+    const files=p.docFiles[d]||[],done=files.length>0;
+    return `<div class="doc-item${done?' chk':''}">
+      <input type="checkbox" ${done?'checked':''} disabled>
+      <div class="doc-main"><div class="doc-name">${esc(d)}</div><div class="doc-meta">${done?`${files.length} arquivo${files.length!==1?'s':''} anexado${files.length!==1?'s':''}`:'Pendente de anexo obrigatório'}</div></div>
+      <div class="doc-actions">
+        <label class="btn btn-ghost btn-sm${canEditCurrent(p)?'':' locked'}">Anexar<input class="doc-file-input" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onchange="handleDocFiles(${i},this)"></label>
+        ${files.length?`<select class="doc-select" id="doc-sel-${i}">${files.map((f,j)=>`<option value="${j}">${j+1}. ${esc(f.name)}</option>`).join('')}</select><button class="attach-btn" onclick="openDocFile(${i})">Abrir</button><button class="attach-btn" onclick="rmDocFile(${i})" style="color:var(--danger)">✕</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function handleDocFiles(docIndex,input){
+  const p=cur();if(!p)return;
+  if(!canEditCurrent(p)){flash('Você só pode anexar documentos obrigatórios na sua etapa.','w');input.value='';return;}
+  normalizeDocs(p);
+  const doc=DOCS[docIndex];
+  Array.from(input.files).forEach(file=>{
+    if(file.size>1048576){flash(`"${file.name}" excede 1MB`,'w');return;}
+    const rd=new FileReader();
+    rd.onload=e=>{
+      p.docFiles[doc].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',data:e.target.result});
+      p.docs[doc]=true;saveDB();renderDocs();addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${doc} · ${p.razao||p.id}`,STAGE_AREA[p.status]||'Todas');flash('Documento obrigatório anexado!');
+    };
+    rd.readAsDataURL(file);
+  });
+  input.value='';
+}
+
+function selectedDocFile(docIndex){
+  const p=cur();if(!p)return null;
+  normalizeDocs(p);
+  const doc=DOCS[docIndex],sel=g('doc-sel-'+docIndex),idx=sel?parseInt(sel.value,10):0;
+  return {doc,file:p.docFiles[doc]?.[idx],idx};
+}
+
+function openDocFile(docIndex){
+  const picked=selectedDocFile(docIndex);if(!picked?.file?.data)return;
+  const l=document.createElement('a');l.href=picked.file.data;l.download=picked.file.name;l.click();
+}
+
+function rmDocFile(docIndex){
+  const p=cur();if(!p)return;
+  if(!canEditCurrent(p)){flash('Você só pode remover documentos obrigatórios na sua etapa.','w');return;}
+  const picked=selectedDocFile(docIndex);if(!picked?.file)return;
+  p.docFiles[picked.doc].splice(picked.idx,1);
+  p.docs[picked.doc]=p.docFiles[picked.doc].length>0;
+  saveDB();renderDocs();flash('Documento removido.','w');
+}
 
 function renderRisk(risk){g('risk-matrix').innerHTML=RISK_ITEMS.map(item=>`<div class="risk-row"><div class="risk-lbl">${item}</div><select class="risk-sel" onchange="updRisk('${item}',this.value)">${['Baixo','Médio','Alto','N/A'].map(o=>`<option${risk[item]===o?' selected':''}>${o}</option>`).join('')}</select></div>`).join('');}
 function updRisk(item,val){const p=cur();if(p&&canEditStage('credito')&&p.status==='credito')p.risk[item]=val;}
@@ -1069,13 +1150,17 @@ function avancar(){
   const idx=STAGES.indexOf(p.status);
   if(idx<0||p.status==='aprovado'||p.status==='reprovado'||p.status==='diretoria')return;
   if(p.status==='comercial'&&!p.razao){flash('Informe a Razão Social','w');return;}
+  if(p.status==='comercial'){
+    const missing=missingRequiredDocs(p);
+    if(missing.length){flash(`Anexe os documentos obrigatórios: ${missing.slice(0,2).join(', ')}${missing.length>2?'...':''}`,'w');return;}
+  }
   if(p.status==='credito'&&!p.cr_dec){flash('Registre a decisão de crédito','w');return;}
   if(p.status==='financeiro'&&!p.fi_dec){flash('Registre a decisão financeira','w');return;}
   const next=STAGES[idx+1];
   p.status=next;saveDB();
   addNotif('stage',`🔄 <strong>${p.razao||p.id}</strong> avançou para <strong>${SN[next]}</strong> — ação necessária`,STAGE_AREA[next]);
   if(next==='diretoria')renderDirVotes(p);
-  renderPipeline(p.status);renderSections(p);applyPermissions(p);
+  renderDocs();renderPipeline(p.status);renderSections(p);applyPermissions(p);
   flash(`Avançado para ${SN[next]}`);
 }
 
@@ -1173,6 +1258,7 @@ function rmUser(i){if(!isAdmin()){flash('Somente Admin pode remover usuários.',
 function g(id){return document.getElementById(id);}
 function v(id,val){const el=g(id);if(el){el.tagName==='SELECT'?el.value=val:el.value=val||'';}}
 function r(id){const el=g(id);return el?el.value:'';}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function cur(){return DB.find(x=>x.id===curId);}
 function maskCNPJ(el){let s=el.value.replace(/\D/g,'').slice(0,14);s=s.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})/,'$1-$2');el.value=s;}
 function maskBRL(el){let s=el.value.replace(/\D/g,'');if(!s)return;el.value=(parseInt(s)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
