@@ -693,12 +693,52 @@ let USERS   =JSON.parse(localStorage.getItem('ag_esteira_users')||'null');
 let INVITES =JSON.parse(localStorage.getItem('ag_esteira_invites')||'[]');
 let NOTIFS  =JSON.parse(localStorage.getItem('ag_esteira_notifs')||'[]');
 let SESSION =JSON.parse(sessionStorage.getItem('ag_esteira_session')||'null');
-let curId=null,filterAtual='',notifTabMode='mine',notifOpen=false;
+let curId=null,filterAtual='',notifTabMode='mine',notifOpen=false,cloudTimer=null,cloudLoading=true,cloudOnline=false,cloudHadState=false;
 
-function saveDB(){localStorage.setItem('ag_esteira_db',JSON.stringify(DB));}
-function saveUsers(){localStorage.setItem('ag_esteira_users',JSON.stringify(USERS));}
-function saveInvites(){localStorage.setItem('ag_esteira_invites',JSON.stringify(INVITES));}
-function saveNotifs(){localStorage.setItem('ag_esteira_notifs',JSON.stringify(NOTIFS));}
+function persistLocal(){
+  localStorage.setItem('ag_esteira_db',JSON.stringify(DB));
+  localStorage.setItem('ag_esteira_users',JSON.stringify(USERS));
+  localStorage.setItem('ag_esteira_invites',JSON.stringify(INVITES));
+  localStorage.setItem('ag_esteira_notifs',JSON.stringify(NOTIFS));
+}
+
+function queueCloudSave(){
+  persistLocal();
+  if(cloudLoading)return;
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(saveCloudState,700);
+}
+
+function saveDB(){queueCloudSave();}
+function saveUsers(){queueCloudSave();}
+function saveInvites(){queueCloudSave();}
+function saveNotifs(){queueCloudSave();}
+
+async function loadCloudState(){
+  try{
+    const res=await fetch('/api/state',{cache:'no-store'});
+    if(!res.ok)throw new Error('cloud unavailable');
+    const state=await res.json();
+    if(Array.isArray(state.DB)){DB=state.DB;cloudHadState=true;}
+    if(Array.isArray(state.USERS)){USERS=state.USERS;cloudHadState=true;}
+    if(Array.isArray(state.INVITES)){INVITES=state.INVITES;cloudHadState=true;}
+    if(Array.isArray(state.NOTIFS)){NOTIFS=state.NOTIFS;cloudHadState=true;}
+    cloudOnline=true;persistLocal();
+  }catch(e){
+    cloudOnline=false;
+  }finally{
+    cloudLoading=false;
+  }
+}
+
+async function saveCloudState(){
+  try{
+    const res=await fetch('/api/state',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({DB,USERS,INVITES,NOTIFS})});
+    cloudOnline=res.ok;
+  }catch(e){
+    cloudOnline=false;
+  }
+}
 
 function encodeInviteData(inv){
   const data={v:1,token:inv.token,email:inv.email,nome:inv.nome,perfil:inv.perfil,area:inv.area,expires:inv.expires};
@@ -1057,6 +1097,7 @@ function rmDocFile(docIndex){
   const p=cur();if(!p)return;
   if(!canEditCurrent(p)){flash('Você só pode remover documentos obrigatórios na sua etapa.','w');return;}
   const picked=selectedDocFile(docIndex);if(!picked?.file)return;
+  if(!confirm(`Excluir "${picked.file.name}" de "${picked.doc}"?`))return;
   p.docFiles[picked.doc].splice(picked.idx,1);
   p.docs[picked.doc]=p.docFiles[picked.doc].length>0;
   saveDB();renderDocs();flash('Documento removido.','w');
@@ -1201,7 +1242,7 @@ function reativar(id){if(!isAdmin()){flash('Somente Admin pode reativar processo
 function renderAttach(list){
   g('attach-count').textContent=`${list.length} arquivo${list.length!==1?'s':''}`;
   const ic={pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',png:'🖼️',jpg:'🖼️',jpeg:'🖼️'};
-  g('attach-list').innerHTML=list.map((a,i)=>{const ext=(a.name||'').split('.').pop().toLowerCase();return `<div class="attach-item"><div class="attach-icon">${ic[ext]||'📎'}</div><div class="attach-info"><div class="attach-name">${a.name}</div><div class="attach-meta">${a.uploader} · ${a.date} · ${fmtSize(a.size)}</div></div>${a.data?`<button class="attach-btn" onclick="dlFile(${i})">⬇</button>`:''}<button class="attach-btn" onclick="rmFile(${i})" style="color:var(--danger)">✕</button></div>`;}).join('');
+  g('attach-list').innerHTML=list.map((a,i)=>{const ext=(a.name||'').split('.').pop().toLowerCase();return `<div class="attach-item"><div class="attach-icon">${ic[ext]||'📎'}</div><div class="attach-info"><div class="attach-name">${esc(a.name)}</div><div class="attach-meta">${esc(a.uploader)} · ${esc(a.date)} · ${fmtSize(a.size)}</div></div>${a.data?`<button class="attach-btn" onclick="dlFile(${i})">⬇</button>`:''}<button class="attach-btn" onclick="rmFile(${i})" style="color:var(--danger)">✕</button></div>`;}).join('');
 }
 function handleFiles(input){
   const p=cur();if(!p)return;
@@ -1214,7 +1255,7 @@ function handleFiles(input){
   });input.value='';
 }
 function dlFile(i){const p=cur();if(!p)return;const a=p.attachments[i];if(!a||!a.data)return;const l=document.createElement('a');l.href=a.data;l.download=a.name;l.click();}
-function rmFile(i){const p=cur();if(!p)return;if(!canEditCurrent(p)){flash('Você só pode remover anexos na sua etapa.','w');return;}p.attachments.splice(i,1);saveDB();renderAttach(p.attachments);flash('Removido.','w');}
+function rmFile(i){const p=cur();if(!p)return;if(!canEditCurrent(p)){flash('Você só pode remover anexos na sua etapa.','w');return;}const a=p.attachments[i];if(a&&!confirm(`Excluir "${a.name}" dos documentos complementares?`))return;p.attachments.splice(i,1);saveDB();renderAttach(p.attachments);flash('Removido.','w');}
 function fmtSize(b){return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB';}
 
 // ── NOTIFICAÇÕES ──
@@ -1265,12 +1306,17 @@ function maskBRL(el){let s=el.value.replace(/\D/g,'');if(!s)return;el.value=(par
 function flash(msg,t='ok'){const el=document.createElement('div');el.className='toast';el.style.background={ok:'#0369a1',w:'#b45309',e:'#991b1b'}[t]||'#0369a1';el.style.color='#fff';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2500);}
 
 // ── INIT ──
-initUsers();seedDemo();
-if(!checkInviteParam()){
-  if(SESSION&&USERS.find(u=>(u.email===SESSION.email||u.login===SESSION.login)&&u.pass===SESSION.pass)){
-    startSession(SESSION);
+async function initApp(){
+  await loadCloudState();
+  initUsers();seedDemo();persistLocal();
+  if(cloudOnline&&!cloudHadState)saveCloudState();
+  if(!checkInviteParam()){
+    if(SESSION&&USERS.find(u=>(u.email===SESSION.email||u.login===SESSION.login)&&u.pass===SESSION.pass)){
+      startSession(SESSION);
+    }
   }
 }
+initApp();
 </script>
 </body>
 </html>
