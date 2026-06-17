@@ -5,20 +5,19 @@ const headers = {
   'cache-control': 'no-store',
 };
 
-export const handler = async (event) => {
-  const store = getStore({ name: 'ag-esteira-credito', consistency: 'strong' });
+export default async (request) => {
+  const store = getStore('ag-esteira-credito');
 
-  if (event.httpMethod === 'GET') {
+  if (request.method === 'GET') {
     const state = await store.get('state', { type: 'json' });
-    return {
-      statusCode: 200,
+    return new Response(JSON.stringify(state || {}), {
+      status: 200,
       headers,
-      body: JSON.stringify(state || {}),
-    };
+    });
   }
 
-  if (event.httpMethod === 'POST') {
-    const state = JSON.parse(event.body || '{}');
+  if (request.method === 'POST') {
+    const state = await request.json();
     await store.setJSON('state', {
       DB: Array.isArray(state.DB) ? state.DB : [],
       USERS: Array.isArray(state.USERS) ? state.USERS : null,
@@ -26,16 +25,14 @@ export const handler = async (event) => {
       NOTIFS: Array.isArray(state.NOTIFS) ? state.NOTIFS : [],
       updatedAt: new Date().toISOString(),
     });
-    return {
-      statusCode: 200,
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
       headers,
-      body: JSON.stringify({ ok: true }),
-    };
+    });
   }
 
-  return {
-    statusCode: 405,
+  return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+    status: 405,
     headers,
-    body: JSON.stringify({ error: 'Method not allowed' }),
-  };
-};
+  });
+}
