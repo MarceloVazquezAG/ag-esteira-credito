@@ -1,11 +1,10 @@
-const { getStore } = require('@netlify/blobs');
-
 const headers = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
 };
 
 exports.handler = async (event) => {
+  const { getStore } = await import('@netlify/blobs');
   const store = getStore('ag-esteira-credito');
 
   if (event.httpMethod === 'GET') {
