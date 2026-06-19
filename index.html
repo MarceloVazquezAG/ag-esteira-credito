@@ -114,6 +114,14 @@ nav{padding:10px 8px;flex:1;overflow-y:auto;}
 .btn-ok:hover{background:rgba(16,185,129,.22);}
 .btn-danger{background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.25);}
 .btn-danger:hover{background:rgba(239,68,68,.22);}
+.btn-warn{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.25);}
+.btn-warn:hover{background:rgba(245,158,11,.22);}
+.devol-hist{margin-top:14px;max-height:160px;overflow-y:auto;}
+.devol-item{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.18);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:11px;}
+.devol-item-hd{display:flex;justify-content:space-between;margin-bottom:3px;}
+.devol-item-from{color:var(--warn);font-weight:600;}
+.devol-item-ts{color:var(--txt2);}
+.devol-item-motivo{color:var(--txt1);line-height:1.4;}
 .btn-sm{padding:5px 10px;font-size:11px;}
 
 /* CARDS */
@@ -637,6 +645,7 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
         <button class="btn btn-ghost btn-sm" onclick="voltarLista()">← Voltar</button>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="salvar()">💾 Salvar</button>
+          <button class="btn btn-warn btn-sm" id="btn-devolver" onclick="devolverModal()" style="display:none">↩ Devolver</button>
           <button class="btn btn-primary btn-sm" id="btn-avan" onclick="avancar()">Avançar Etapa →</button>
         </div>
       </div>
@@ -674,6 +683,27 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
   </div>
 </div>
 </div>
+</div>
+
+<!-- MODAL DEVOLVER -->
+<div class="modal-bg" id="modal-devolver">
+  <div class="modal" style="width:440px">
+    <div class="modal-hd">
+      <span class="modal-title">↩ Devolver Processo</span>
+      <button class="btn btn-ghost btn-sm" onclick="fecharDevolucao()">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:14px;" id="devol-destino-txt"></div>
+    <label class="form-label">Justificativa de devolução <span style="color:var(--danger)">*</span></label>
+    <textarea id="devol-motivo" class="form-input" rows="4" placeholder="Descreva o motivo da devolução…" style="resize:vertical;min-height:80px;"></textarea>
+    <div id="devol-hist-wrap" style="display:none">
+      <div style="font-size:11px;color:var(--txt3);margin-top:14px;margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px;">Histórico de devoluções</div>
+      <div class="devol-hist" id="devol-hist"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end;">
+      <button class="btn btn-ghost btn-sm" onclick="fecharDevolucao()">Cancelar</button>
+      <button class="btn btn-warn btn-sm" onclick="confirmarDevolucao()">↩ Confirmar Devolução</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL CONVIDAR -->
@@ -897,6 +927,9 @@ function applyPermissions(p){
   g('sec-docs')?.querySelector('.upload-zone')?.classList.toggle('locked',docsLocked);
   g('btn-avan').disabled=!canEditCurrent(p)||current==='diretoria';
   g('btn-avan').style.display=canEditCurrent(p)&&current!=='diretoria'?'inline-flex':'none';
+  const idxCur=STAGES.indexOf(current);
+  const canDevolver=canEditCurrent(p)&&idxCur>0&&current!=='aprovado'&&current!=='reprovado';
+  g('btn-devolver').style.display=canDevolver?'inline-flex':'none';
   const saveBtn=document.querySelector('button[onclick="salvar()"]');
   if(saveBtn)saveBtn.disabled=!canEditCurrent(p);
   g('my-vote-section').style.pointerEvents=canDir?'auto':'none';
@@ -1294,7 +1327,7 @@ function renderDirVotes(p){
   if(isDir&&isActive&&myVote&&!myVote.decision){g('my-vote-section').style.display='block';g('voted-msg').style.display='none';}
   else if(isDir&&myVote&&myVote.decision){g('my-vote-section').style.display='none';g('voted-msg').style.display='block';g('voted-msg').innerHTML=`Você já votou: <strong style="color:${dcol(myVote.decision)}">${myVote.decision}</strong> em ${myVote.ts}`;}
   else{g('my-vote-section').style.display='none';g('voted-msg').style.display='none';}
-  if(isActive)g('btn-avan').style.display='none';
+  if(isActive){g('btn-avan').style.display='none';g('btn-devolver').style.display='none';}
 }
 
 function castVote(decision){
@@ -1331,11 +1364,11 @@ function renderSections(p){
     rs.style.display='block';
     const ok=(p.dir_votes||[]).filter(v=>v.decision==='Aprovado').length;
     rs.innerHTML=`<div class="result-box r-ok"><div class="r-icon">✓</div><div class="r-title">Operação Aprovada</div><div class="r-sub">${p.razao} · ${ok}/3 votos da diretoria</div><div class="renewal-grid"><div class="ri"><div class="ri-per">A cada 3 meses</div><div class="ri-doc">Faturamento · Endividamento · Balancete</div></div><div class="ri"><div class="ri-per">Anualmente</div><div class="ri-doc">DRE · Balanço · Declaração IR</div></div></div></div>`;
-    g('btn-avan').style.display='none';
+    g('btn-avan').style.display='none';g('btn-devolver').style.display='none';
   } else if(st==='reprovado'){
     rs.style.display='block';
     rs.innerHTML=`<div class="result-box r-no"><div class="r-icon">✕</div><div class="r-title">Operação Reprovada</div><div class="r-sub">${p.razao}</div>${p.motivo_rep?`<div style="font-size:11px;color:var(--danger);margin:10px 0">${p.motivo_rep}</div>`:''}<button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="reativar('${p.id}')">↩ Reativar</button></div>`;
-    g('btn-avan').style.display='none';
+    g('btn-avan').style.display='none';g('btn-devolver').style.display='none';
   } else {
     rs.style.display='none';
     if(st!=='diretoria')g('btn-avan').style.display='inline-flex';
@@ -1396,6 +1429,44 @@ function salvar(showMsg=true){
 }
 
 function reativar(id){if(!isAdmin()){flash('Somente Admin pode reativar processo.','w');return;}const p=DB.find(x=>x.id===id);if(!p)return;p.status='comercial';p.dir_votes=[];saveDB();openProcesso(id);flash('Processo reativado!');}
+
+// ── DEVOLVER ──
+function devolverModal(){
+  const p=cur();if(!p)return;
+  if(!canEditCurrent(p)){flash('Você só pode devolver processos da sua etapa.','w');return;}
+  const idx=STAGES.indexOf(p.status);
+  if(idx<=0){flash('Processo já está na primeira etapa.','w');return;}
+  const prev=STAGES[idx-1];
+  g('devol-destino-txt').textContent=`O processo será devolvido de "${SN[p.status]}" para "${SN[prev]}".`;
+  g('devol-motivo').value='';
+  const hist=(p.devolucoes||[]);
+  if(hist.length){
+    g('devol-hist-wrap').style.display='block';
+    g('devol-hist').innerHTML=hist.slice().reverse().map(d=>`<div class="devol-item"><div class="devol-item-hd"><span class="devol-item-from">${SN[d.from]||d.from} → ${SN[d.to]||d.to}</span><span class="devol-item-ts">${d.ts} · ${d.user}</span></div><div class="devol-item-motivo">${d.motivo}</div></div>`).join('');
+  } else {
+    g('devol-hist-wrap').style.display='none';
+  }
+  g('modal-devolver').classList.add('open');
+  setTimeout(()=>g('devol-motivo').focus(),80);
+}
+function fecharDevolucao(){g('modal-devolver').classList.remove('open');}
+function confirmarDevolucao(){
+  const p=cur();if(!p)return;
+  const motivo=g('devol-motivo').value.trim();
+  if(!motivo){flash('Digite a justificativa antes de confirmar.','w');g('devol-motivo').focus();return;}
+  const idx=STAGES.indexOf(p.status);
+  if(idx<=0)return;
+  const from=p.status;
+  const to=STAGES[idx-1];
+  p.devolucoes=p.devolucoes||[];
+  p.devolucoes.push({from,to,motivo,user:SESSION?.nome||'Sistema',ts:new Date().toLocaleString('pt-BR')});
+  p.status=to;
+  saveDB();
+  fecharDevolucao();
+  addNotif('stage',`↩ <strong>${p.razao||p.id}</strong> devolvido de <strong>${SN[from]}</strong> para <strong>${SN[to]}</strong> — ${motivo.slice(0,60)}${motivo.length>60?'…':''}`,STAGE_AREA[to]||'Todas');
+  renderPipeline(p.status);renderSections(p);applyPermissions(p);
+  flash(`Processo devolvido para ${SN[to]}.`,'w');
+}
 
 // ── ATTACHMENTS ──
 function renderAttach(list){
