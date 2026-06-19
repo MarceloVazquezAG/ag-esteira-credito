@@ -1067,19 +1067,35 @@ function renderDocs(){
   }).join('');
 }
 
+async function uploadToBlobs(file){
+  return new Promise((resolve,reject)=>{
+    const rd=new FileReader();
+    rd.onload=async e=>{
+      try{
+        const res=await fetch('/api/file',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({data:e.target.result,name:file.name,type:file.type,size:file.size})});
+        if(!res.ok)throw new Error('upload failed');
+        const {key}=await res.json();
+        resolve(key);
+      }catch(err){reject(err);}
+    };
+    rd.onerror=reject;
+    rd.readAsDataURL(file);
+  });
+}
+
 function handleDocFiles(docIndex,input){
   const p=cur();if(!p)return;
   if(!canEditCurrent(p)){flash('Você só pode anexar documentos obrigatórios na sua etapa.','w');input.value='';return;}
   normalizeDocs(p);
   const doc=DOCS[docIndex];
-  Array.from(input.files).forEach(file=>{
-    if(file.size>1048576){flash(`"${file.name}" excede 1MB`,'w');return;}
-    const rd=new FileReader();
-    rd.onload=e=>{
-      p.docFiles[doc].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',data:e.target.result});
+  Array.from(input.files).forEach(async file=>{
+    if(file.size>10485760){flash(`"${file.name}" excede 10MB. Comprima o PDF antes de enviar.`,'w');return;}
+    flash('Enviando...','ok');
+    try{
+      const key=await uploadToBlobs(file);
+      p.docFiles[doc].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
       p.docs[doc]=true;saveDB();renderDocs();addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${doc} · ${p.razao||p.id}`,STAGE_AREA[p.status]||'Todas');flash('Documento obrigatório anexado!');
-    };
-    rd.readAsDataURL(file);
+    }catch(e){flash('Erro ao enviar arquivo. Tente novamente.','e');}
   });
   input.value='';
 }
@@ -1245,20 +1261,35 @@ function reativar(id){if(!isAdmin()){flash('Somente Admin pode reativar processo
 function renderAttach(list){
   g('attach-count').textContent=`${list.length} arquivo${list.length!==1?'s':''}`;
   const ic={pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',png:'🖼️',jpg:'🖼️',jpeg:'🖼️'};
-  g('attach-list').innerHTML=list.map((a,i)=>{const ext=(a.name||'').split('.').pop().toLowerCase();return `<div class="attach-item"><div class="attach-icon">${ic[ext]||'📎'}</div><div class="attach-info"><div class="attach-name">${esc(a.name)}</div><div class="attach-meta">${esc(a.uploader)} · ${esc(a.date)} · ${fmtSize(a.size)}</div></div>${a.data?`<button class="attach-btn" onclick="dlFile(${i})">⬇</button>`:''}<button class="attach-btn" onclick="rmFile(${i})" style="color:var(--danger)">✕</button></div>`;}).join('');
+  g('attach-list').innerHTML=list.map((a,i)=>{const ext=(a.name||'').split('.').pop().toLowerCase();return `<div class="attach-item"><div class="attach-icon">${ic[ext]||'📎'}</div><div class="attach-info"><div class="attach-name">${esc(a.name)}</div><div class="attach-meta">${esc(a.uploader)} · ${esc(a.date)} · ${fmtSize(a.size)}</div></div>${(a.data||a.key)?`<button class="attach-btn" onclick="dlFile(${i})">⬇</button>`:''}<button class="attach-btn" onclick="rmFile(${i})" style="color:var(--danger)">✕</button></div>`;}).join('');
 }
 function handleFiles(input){
   const p=cur();if(!p)return;
   if(!canEditCurrent(p)){flash('Você só pode anexar arquivos na sua etapa.','w');input.value='';return;}
-  Array.from(input.files).forEach(file=>{
-    if(file.size>1048576){flash(`"${file.name}" excede 1MB`,'w');return;}
-    const rd=new FileReader();
-    rd.onload=e=>{p.attachments.push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',data:e.target.result});saveDB();renderAttach(p.attachments);addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${p.razao||p.id}`,STAGE_AREA[p.status]||'Todas');flash('Anexado!');};
-    rd.readAsDataURL(file);
+  Array.from(input.files).forEach(async file=>{
+    if(file.size>10485760){flash(`"${file.name}" excede 10MB. Comprima o PDF antes de enviar.`,'w');return;}
+    flash('Enviando...','ok');
+    try{
+      const key=await uploadToBlobs(file);
+      p.attachments.push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
+      saveDB();renderAttach(p.attachments);addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${p.razao||p.id}`,STAGE_AREA[p.status]||'Todas');flash('Anexado!');
+    }catch(e){flash('Erro ao enviar arquivo. Tente novamente.','e');}
   });input.value='';
 }
-function dlFile(i){const p=cur();if(!p)return;const a=p.attachments[i];if(!a||!a.data)return;const l=document.createElement('a');l.href=a.data;l.download=a.name;l.click();}
-function rmFile(i){const p=cur();if(!p)return;if(!canEditCurrent(p)){flash('Você só pode remover anexos na sua etapa.','w');return;}const a=p.attachments[i];if(a&&!confirm(`Excluir "${a.name}" dos documentos complementares?`))return;p.attachments.splice(i,1);saveDB();renderAttach(p.attachments);flash('Removido.','w');}
+async function dlFile(i){
+  const p=cur();if(!p)return;
+  const a=p.attachments[i];if(!a)return;
+  if(a.data){const l=document.createElement('a');l.href=a.data;l.download=a.name;l.click();return;}
+  if(!a.key){flash('Arquivo não disponível.','e');return;}
+  flash('Baixando...','ok');
+  try{
+    const res=await fetch('/api/file/'+a.key);
+    const f=await res.json();
+    const l=document.createElement('a');l.href=f.data;l.download=f.name;l.click();
+  }catch(e){flash('Erro ao baixar arquivo.','e');}
+}
+function rmFile(i){const p=cur();if(!p)return;if(!canEditCurrent(p)){flash('Você só pode remover anexos na sua etapa.','w');return;}const a=p.attachments[i];if(a&&!confirm(`Excluir "${a.name}" dos documentos complementares?`))return;if(a.key)fetch('/api/file/'+a.key,{method:'DELETE'}).catch(()=>{});p.attachments.splice(i,1);saveDB();renderAttach(p.attachments);flash('Removido.','w');}
+
 function fmtSize(b){return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB';}
 
 // ── NOTIFICAÇÕES ──
