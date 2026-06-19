@@ -1000,40 +1000,15 @@ function openInviteEmail(){
 function openModalUser(){if(!isAdmin()){flash('Somente Admin pode convidar usuários.','w');return;}g('modal-user').classList.add('open');['mu-nome','mu-email'].forEach(id=>v(id,''));v('mu-perfil','');v('mu-area','');g('invite-result').style.display='none';}
 function closeModalUser(){g('modal-user').classList.remove('open');}
 
-// ── SEED ──
-function seedDemo(){
-  if(DB.length>0)return;
-  const mk=(d,st,cnpj,razao,tipo,crD,fiD,dv)=>({
-    id:proto(d),abertura:iso(d),razao,cnpj,atividade:'',contato:'',tipo_op:tipo,
-    limite:'1.500.000,00',prazo:'12',status:st,
-    socios:[{nome:'Carlos Eduardo Lima',cpf:'123.456.789-00'}],
-    sacados:'Grupo Martins SA\nAtacado Brasil Ltda',narrativa:'5 anos de relacionamento.',
-    docs:DOCS.reduce((o,d)=>({...o,[d]:false}),{}),docFiles:DOCS.reduce((o,d)=>({...o,[d]:[]}),{}),
-    risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),
-    cr_sacados:'Carteira pulverizada.',cr_parecer:crD?'Risco controlado.':'',cr_dec:crD||'',
-    fat:'4.200.000,00',cmv:'2.900.000,00',mb:'31',pl:'1.200.000,00',div:'380.000,00',dup:'620.000,00',
-    fi_analista:'Marcelo Vazquez',fi_data:iso(d+1),
-    fi_parecer:fiD?'Indicadores dentro dos parâmetros.':'',fi_dec:fiD||'',
-    dir_votes:dv||[],motivo_rep:'',blacklist:false,attachments:[],
-  });
-  DB=[
-    mk(7,'comercial','08.234.901/0001-44','Distribuidora Omega SP Ltda','Convencional','','',null),
-    mk(10,'credito','34.512.789/0001-67','Construtora Horizonte SA','Escrow','Favorável','',null),
-    mk(15,'financeiro','56.123.890/0001-34','Saúde Diagnósticos Ltda','Convencional','Favorável','',null),
-    mk(20,'diretoria','12.876.543/0001-21','Agro Prime Exportações','Mesclado','Favorável','Favorável',[
-      {login:'socio1@ag',nome:'Sócio 1',decision:'Aprovado',obs:'De acordo.',ts:new Date(Date.now()-2*3600000).toLocaleString('pt-BR')},
-      {login:'socio2@ag',nome:'Sócio 2',decision:null,obs:'',ts:null},
-      {login:'socio3@ag',nome:'Sócio 3',decision:null,obs:'',ts:null},
-    ]),
-    mk(30,'aprovado','78.456.123/0001-90','Transportadora Veloz SA','Convencional','Favorável','Favorável',null),
-    mk(45,'reprovado','67.890.123/0001-45','AALS Atacado e Varejo','Convencional','Desfavorável','Desfavorável',null),
-  ];
-  DB[5].motivo_rep='Alto índice de protesto.';
+function deleteProcesso(id){
+  if(!isAdmin()){flash('Somente Admin pode excluir processos.','w');return;}
+  const p=DB.find(x=>x.id===id);if(!p)return;
+  if(!confirm(`Excluir permanentemente "${p.razao||p.id}"?\n\nEsta ação não pode ser desfeita.`))return;
+  DB=DB.filter(x=>x.id!==id);
   saveDB();
+  if(curId===id)voltarLista();else renderLista();
+  flash('Processo excluído.','w');
 }
-
-function proto(d){const dt=new Date(Date.now()-d*86400000);return 'COM-'+String(dt.getFullYear()).slice(2)+String(dt.getMonth()+1).padStart(2,'0')+String(dt.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9000)+1000);}
-function iso(d){return new Date(Date.now()-d*86400000).toISOString().slice(0,10);}
 
 // ── VIEWS ──
 function showView(vw){
@@ -1062,7 +1037,7 @@ function renderLista(){
     <td><span class="sbadge ${SC[p.status]||'sb-comercial'}">${SN[p.status]||p.status}</span></td>
     <td style="color:var(--txt2)">${p.abertura||'—'}</td>
     <td style="color:${totalDocs?'var(--blue)':'var(--txt3)'}">${totalDocs}</td>
-    <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openProcesso('${p.id}')">Abrir →</button></td>
+    <td style="display:flex;gap:4px;align-items:center"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openProcesso('${p.id}')">Abrir →</button>${isAdmin()?`<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:4px 7px" onclick="event.stopPropagation();deleteProcesso('${p.id}')" title="Excluir processo">✕</button>`:''}</td>
   </tr>`}).join('');
 }
 
@@ -1448,7 +1423,7 @@ async function initApp(){
   // se servidor retornou menos dados que o local, preserva o local
   if(localUsers&&Array.isArray(localUsers)&&localUsers.length>(USERS?.length||0))USERS=localUsers;
   if(localDB.length>DB.length)DB=localDB;
-  initUsers();seedDemo();
+  initUsers();
   // se está online e servidor está vazio, sobe os dados locais
   if(cloudOnline&&!cloudHadState)saveCloudState();
   persistLocal();
