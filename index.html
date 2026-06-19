@@ -124,8 +124,10 @@ nav{padding:10px 8px;flex:1;overflow-y:auto;}
 .devol-flow{display:flex;align-items:center;gap:8px;margin:18px 0 16px;}
 .devol-stage{display:inline-flex;align-items:center;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;}
 .devol-stage.from{background:rgba(0,200,190,.1);border:1px solid rgba(0,200,190,.25);color:var(--blue);}
-.devol-stage.to{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--warn);}
 .devol-arrow{color:var(--txt3);font-size:14px;}
+.devol-pill{display:inline-flex;align-items:center;padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid rgba(245,158,11,.2);color:var(--txt2);background:rgba(255,255,255,.03);transition:all .15s;}
+.devol-pill:hover{border-color:rgba(245,158,11,.4);color:var(--warn);background:rgba(245,158,11,.08);}
+.devol-pill.active{border-color:rgba(245,158,11,.5);color:var(--warn);background:rgba(245,158,11,.14);box-shadow:0 0 10px rgba(245,158,11,.15);}
 .devol-hist{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
 .devol-hist::-webkit-scrollbar{width:4px;}
 .devol-hist::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
@@ -743,7 +745,7 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
     <div class="devol-flow">
       <div class="devol-stage from" id="devol-from-badge">—</div>
       <div class="devol-arrow">→</div>
-      <select id="devol-to-select" class="devol-stage to" style="cursor:pointer;appearance:auto;border:none;outline:none;font-weight:700;font-size:11px;background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.25);border-radius:20px;padding:5px 12px;"></select>
+      <div id="devol-dest-pills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
 
     <div class="fld" style="margin-bottom:6px;">
@@ -1557,9 +1559,8 @@ function devolverModal(){
   const idx=STAGES.indexOf(p.status);
   if(idx<=0){flash('Processo já está na primeira etapa.','w');return;}
   g('devol-from-badge').textContent=SN[p.status]||p.status;
-  const sel=g('devol-to-select');
-  sel.innerHTML=STAGES.slice(0,idx).map(s=>`<option value="${s}">${SN[s]||s}</option>`).join('');
-  sel.value=STAGES[idx-1];
+  const prevStages=STAGES.slice(0,idx);
+  g('devol-dest-pills').innerHTML=prevStages.map(s=>`<div class="devol-pill${s===STAGES[idx-1]?' active':''}" data-stage="${s}" onclick="selectDevolPill(this,'${s}')">${SN[s]||s}</div>`).join('');
   g('devol-destino-txt').textContent='Selecione a etapa de destino e descreva o motivo.';
   g('devol-motivo').value='';
   const hist=(p.devolucoes||[]);
@@ -1580,13 +1581,15 @@ function devolverModal(){
   g('modal-devolver').classList.add('open');
   setTimeout(()=>g('devol-motivo').focus(),80);
 }
+function selectDevolPill(el,stage){g('devol-dest-pills').querySelectorAll('.devol-pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');}
 function fecharDevolucao(){g('modal-devolver').classList.remove('open');}
 function confirmarDevolucao(){
   const p=cur();if(!p)return;
   const motivo=g('devol-motivo').value.trim();
   if(!motivo){flash('Digite a justificativa antes de confirmar.','w');g('devol-motivo').focus();return;}
   const from=p.status;
-  const to=g('devol-to-select').value;
+  const activePill=g('devol-dest-pills').querySelector('.devol-pill.active');
+  const to=activePill?.dataset?.stage;
   if(!to){flash('Selecione a etapa de destino.','w');return;}
   p.devolucoes=p.devolucoes||[];
   p.devolucoes.push({from,to,motivo,user:SESSION?.nome||'Sistema',ts:new Date().toLocaleString('pt-BR')});
