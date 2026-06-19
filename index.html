@@ -254,11 +254,20 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
 .doc-select{max-width:170px;background:var(--bg-c);border:1px solid var(--bdr2);border-radius:var(--rs);color:var(--txt1);font-size:10px;padding:5px 7px;}
 
 /* RISK */
-.risk-row{display:grid;grid-template-columns:1fr 130px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--bdr2);}
+.risk-row{padding:9px 0;border-bottom:1px solid var(--bdr2);}
 .risk-row:last-child{border-bottom:none;}
-.risk-lbl{font-size:11px;color:var(--txt2);}
-.risk-sel{background:var(--bg-in);border:1px solid var(--bdr2);border-radius:var(--rs);padding:5px 8px;color:var(--txt1);font-size:11px;outline:none;width:100%;}
+.risk-lbl{font-size:11px;font-weight:600;color:var(--txt1);margin-bottom:5px;}
+.risk-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.risk-sel{background:var(--bg-in);border:1px solid var(--bdr2);border-radius:var(--rs);padding:4px 8px;color:var(--txt1);font-size:11px;outline:none;width:90px;}
 .risk-sel:focus{border-color:var(--blue);}
+.risk-naot{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2);cursor:pointer;user-select:none;}
+.risk-naot input{cursor:pointer;accent-color:var(--blue);}
+.risk-files{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;}
+.risk-file-tag{display:inline-flex;align-items:center;gap:3px;background:rgba(0,200,190,.08);border:1px solid rgba(0,200,190,.2);border-radius:4px;padding:2px 7px;font-size:10px;color:var(--blue);}
+.risk-file-tag span:first-child{cursor:pointer;}
+.risk-file-tag .rm{cursor:pointer;color:#ef4444;font-size:10px;line-height:1;margin-left:1px;}
+.risk-comment{width:100%;min-height:36px;resize:vertical;background:var(--bg-in);border:1px solid var(--bdr2);border-radius:6px;color:var(--txt1);padding:5px 8px;font-size:11px;font-family:inherit;box-sizing:border-box;margin-top:3px;}
+.risk-comment:focus{outline:none;border-color:var(--blue);}
 
 /* FI ITEMS */
 .fi-item{background:var(--bg-in);border:1px solid var(--bdr2);border-radius:var(--rs);padding:11px 13px;}
@@ -704,7 +713,13 @@ const DOCS=[
   'Imposto de Renda atualizado de todas as partes',
   'Avalistas (CNH, Comprovante de end., IR e certidão)',
 ];
-const RISK_ITEMS=['Concentração de Sacados','Prazo de Recebimento','Diversificação de Atividade','Histórico de Inadimplência','Capacidade de Reposição','Gestão Financeira','Porte do Cedente','Dependência de Clientes','Situação Fiscal','Garantias Oferecidas'];
+const RISK_ITEMS=[
+  'Relatório completo de análise (Serasa, Processos, Consultas Públicas, Street View)',
+  'Bacen',
+  'Coligadas',
+  'Ex-Sócios',
+  'CreditBox',
+];
 const STAGES=['comercial','credito','financeiro','diretoria'];
 const SN={comercial:'Comercial',credito:'Crédito',financeiro:'Financeiro',diretoria:'Diretoria',aprovado:'Aprovado',reprovado:'Reprovado'};
 const SC={comercial:'sb-comercial',credito:'sb-credito',financeiro:'sb-financeiro',diretoria:'sb-diretoria',aprovado:'sb-aprovado',reprovado:'sb-reprovado'};
@@ -1046,7 +1061,7 @@ function gerarProto(){const dt=new Date();return 'COM-'+String(dt.getFullYear())
 
 function novoProcesso(){
   if(!canEditStage('comercial')){flash('Somente Comercial ou Admin pode criar processo.','w');return;}
-  const p={id:gerarProto(),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:{},docFiles:{},docJustifications:{},risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
+  const p={id:gerarProto(),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:{},docFiles:{},docJustifications:{},risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),riskFiles:{},riskNaoTem:{},riskComentarios:{},cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
   DB.push(p);saveDB();curId=p.id;showDetalhe(p);
 }
 
@@ -1064,7 +1079,7 @@ function fillForm(p){
   v('fi-pl',p.pl||'');v('fi-div',p.div||'');v('fi-dup',p.dup||'');
   v('fi-anal',p.fi_analista||'');v('fi-data',p.fi_data||'');
   v('fi-par',p.fi_parecer||'');v('hd-fi-dec',p.fi_dec||'');
-  renderSocios(p.socios||[]);renderDocs();renderRisk(p.risk||{});renderAttach(p.attachments||[]);
+  renderSocios(p.socios||[]);renderDocs();renderRisk(p);renderAttach(p.attachments||[]);
   renderDirVotes(p);
   g('res-com').innerHTML=p.razao?`<strong style="color:var(--blue)">${p.razao}</strong> · ${p.tipo_op||''} · R$ ${p.limite||'—'}`:'Aguardando dados.';
   g('dir-cr-dec').textContent=p.cr_dec||'Aguardando';g('dir-cr-dec').style.color=dcol(p.cr_dec);
@@ -1187,8 +1202,68 @@ function rmDocFile(docIndex){
   saveDB();renderDocs();flash('Documento removido.','w');
 }
 
-function renderRisk(risk){g('risk-matrix').innerHTML=RISK_ITEMS.map(item=>`<div class="risk-row"><div class="risk-lbl">${item}</div><select class="risk-sel" onchange="updRisk('${item}',this.value)">${['Baixo','Médio','Alto','N/A'].map(o=>`<option${risk[item]===o?' selected':''}>${o}</option>`).join('')}</select></div>`).join('');}
-function updRisk(item,val){const p=cur();if(p&&canEditStage('credito')&&p.status==='credito')p.risk[item]=val;}
+function renderRisk(p){
+  if(!p)return;
+  p.risk=p.risk||{};p.riskFiles=p.riskFiles||{};p.riskNaoTem=p.riskNaoTem||{};p.riskComentarios=p.riskComentarios||{};
+  const canEdit=canEditStage('credito')&&p.status==='credito';
+  g('risk-matrix').innerHTML=RISK_ITEMS.map((item,i)=>{
+    const nivel=p.risk[item]||'Baixo';
+    const naoTem=!!p.riskNaoTem[item];
+    const comentario=p.riskComentarios[item]||'';
+    const files=Array.isArray(p.riskFiles[item])?p.riskFiles[item]:[];
+    const selOpts=['Baixo','Médio','Alto','N/A'].map(o=>`<option${nivel===o?' selected':''}>${o}</option>`).join('');
+    const filesHtml=files.length?`<div class="risk-files">${files.map((f,fi)=>`<span class="risk-file-tag"><span onclick="dlRiskFile(${i},${fi})">📄 ${f.name}</span>${canEdit?`<span class="rm" onclick="rmRiskFile(${i},${fi})">✕</span>`:''}</span>`).join('')}</div>`:'';
+    const commentHtml=`<textarea class="risk-comment" placeholder="Comentário (opcional)..." ${canEdit?`onblur="updRiskComentario(${i},this.value)"`:'readonly'}>${comentario}</textarea>`;
+    return `<div class="risk-row">
+      <div class="risk-lbl">${item}</div>
+      <div class="risk-controls">
+        <select class="risk-sel"${canEdit?` onchange="updRisk(${i},this.value)"`:'disabled'}>${selOpts}</select>
+        ${canEdit?`<label class="risk-naot"><input type="checkbox"${naoTem?' checked':''} onchange="updRiskNaoTem(${i},this.checked)"> Não tem</label>`:''}
+        ${canEdit?`<label class="btn btn-ghost" style="font-size:10px;padding:3px 8px;cursor:pointer">📎 Arquivo<input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style="display:none" onchange="handleRiskFile(${i},this)"></label>`:''}
+      </div>
+      ${filesHtml}${commentHtml}
+    </div>`;
+  }).join('');
+}
+function updRisk(idx,val){const p=cur();if(!p||!canEditStage('credito')||p.status!=='credito')return;p.risk=p.risk||{};p.risk[RISK_ITEMS[idx]]=val;saveDB();}
+function updRiskNaoTem(idx,val){const p=cur();if(!p||!canEditStage('credito')||p.status!=='credito')return;p.riskNaoTem=p.riskNaoTem||{};p.riskNaoTem[RISK_ITEMS[idx]]=val;saveDB();}
+function updRiskComentario(idx,val){const p=cur();if(!p||!canEditStage('credito')||p.status!=='credito')return;p.riskComentarios=p.riskComentarios||{};p.riskComentarios[RISK_ITEMS[idx]]=val.trim();saveDB();}
+function handleRiskFile(idx,input){
+  const pid=curId;
+  const p=DB.find(x=>x.id===pid);if(!p)return;
+  if(!canEditStage('credito')||p.status!=='credito'){flash('Somente Crédito pode anexar aqui.','w');input.value='';return;}
+  const item=RISK_ITEMS[idx];
+  Array.from(input.files).forEach(async file=>{
+    if(file.size>20971520){flash(`"${file.name}" excede 20MB.`,'w');return;}
+    flash('Enviando...','ok');
+    try{
+      const key=await uploadToSupabase(file);
+      const p2=DB.find(x=>x.id===pid);if(!p2)return;
+      p2.riskFiles=p2.riskFiles||{};
+      if(!Array.isArray(p2.riskFiles[item]))p2.riskFiles[item]=[];
+      p2.riskFiles[item].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
+      saveDB();renderRisk(p2);flash('Arquivo anexado!');
+    }catch(e){flash('Erro ao enviar arquivo.','e');}
+  });
+  input.value='';
+}
+function dlRiskFile(idx,fi){
+  const p=cur();if(!p)return;
+  const f=(p.riskFiles||{})[RISK_ITEMS[idx]]?.[fi];if(!f)return;
+  if(f.key&&f.key.startsWith('sb:'))window.open(supaPublicUrl(f.key),'_blank');
+  else flash('Arquivo não disponível.','e');
+}
+function rmRiskFile(idx,fi){
+  const p=cur();if(!p)return;
+  if(!canEditStage('credito')||p.status!=='credito'){flash('Somente Crédito pode remover.','w');return;}
+  const item=RISK_ITEMS[idx];
+  const files=(p.riskFiles||{})[item];if(!files)return;
+  const f=files[fi];
+  if(!confirm(`Excluir "${f?.name}"?`))return;
+  if(f?.key){if(f.key.startsWith('sb:'))deleteSupaFile(f.key);else fetch('/api/file/'+f.key,{method:'DELETE'}).catch(()=>{});}
+  files.splice(fi,1);
+  saveDB();renderRisk(p);flash('Arquivo removido.','w');
+}
 
 // ── DIRETORIA 3 VOTOS ──
 function renderDirVotes(p){
