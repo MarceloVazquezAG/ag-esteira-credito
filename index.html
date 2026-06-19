@@ -1139,17 +1139,19 @@ function clearJustification(docIndex){
 
 
 function handleDocFiles(docIndex,input){
+  const pid=curId;
   const p=cur();if(!p)return;
   if(!canEditCurrent(p)){flash('Você só pode anexar documentos obrigatórios na sua etapa.','w');input.value='';return;}
-  normalizeDocs(p);
   const doc=DOCS[docIndex];
   Array.from(input.files).forEach(async file=>{
     if(file.size>20971520){flash(`"${file.name}" excede 20MB. Comprima o PDF antes de enviar.`,'w');return;}
     flash('Enviando...','ok');
     try{
       const key=await uploadToSupabase(file);
-      p.docFiles[doc].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
-      p.docs[doc]=true;saveDB();renderDocs();addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${doc} · ${p.razao||p.id}`,STAGE_AREA[p.status]||'Todas');flash('Documento obrigatório anexado!');
+      const p2=DB.find(x=>x.id===pid);if(!p2)return;
+      normalizeDocs(p2);
+      p2.docFiles[doc].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
+      p2.docs[doc]=true;saveDB();renderDocs();addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${doc} · ${p2.razao||p2.id}`,STAGE_AREA[p2.status]||'Todas');flash('Documento obrigatório anexado!');
     }catch(e){flash('Erro ao enviar arquivo. Tente novamente.','e');}
   });
   input.value='';
@@ -1326,6 +1328,7 @@ function renderAttach(list){
   g('attach-list').innerHTML=list.map((a,i)=>{const ext=(a.name||'').split('.').pop().toLowerCase();return `<div class="attach-item"><div class="attach-icon">${ic[ext]||'📎'}</div><div class="attach-info"><div class="attach-name">${esc(a.name)}</div><div class="attach-meta">${esc(a.uploader)} · ${esc(a.date)} · ${fmtSize(a.size)}</div></div>${(a.data||a.key)?`<button class="attach-btn" onclick="dlFile(${i})">⬇</button>`:''}<button class="attach-btn" onclick="rmFile(${i})" style="color:var(--danger)">✕</button></div>`;}).join('');
 }
 function handleFiles(input){
+  const pid=curId;
   const p=cur();if(!p)return;
   if(!canEditCurrent(p)){flash('Você só pode anexar arquivos na sua etapa.','w');input.value='';return;}
   Array.from(input.files).forEach(async file=>{
@@ -1333,8 +1336,10 @@ function handleFiles(input){
     flash('Enviando...','ok');
     try{
       const key=await uploadToSupabase(file);
-      p.attachments.push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
-      saveDB();renderAttach(p.attachments);addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${p.razao||p.id}`,STAGE_AREA[p.status]||'Todas');flash('Anexado!');
+      const p2=DB.find(x=>x.id===pid);if(!p2)return;
+      p2.attachments=p2.attachments||[];
+      p2.attachments.push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
+      saveDB();renderAttach(p2.attachments);addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${p2.razao||p2.id}`,STAGE_AREA[p2.status]||'Todas');flash('Anexado!');
     }catch(e){flash('Erro ao enviar arquivo. Tente novamente.','e');}
   });input.value='';
 }
