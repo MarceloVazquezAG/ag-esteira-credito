@@ -238,12 +238,18 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
 .doc-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;padding:8px 11px;border:1px solid var(--bdr2);border-radius:var(--rs);transition:all var(--tr);background:var(--bg-in);}
 .doc-item:hover{border-color:var(--blue);background:var(--blue-dim);}
 .doc-item.chk{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.05);}
+.doc-item.jst{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.05);}
 .doc-item input[type="checkbox"]{accent-color:var(--blue);flex-shrink:0;}
 .doc-main{min-width:0;}
 .doc-name{font-size:11px;color:var(--txt2);line-height:1.35;}
 .doc-item.chk .doc-name{color:var(--ok);}
+.doc-item.jst .doc-name{color:#f59e0b;}
 .doc-meta{font-size:10px;color:var(--txt3);margin-top:2px;}
 .doc-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.doc-just-area{margin-top:6px;width:100%;}
+.doc-just-input{width:100%;min-height:48px;resize:vertical;background:var(--surface2);border:1px solid var(--bdr2);border-radius:6px;color:var(--text);padding:6px 8px;font-size:11px;font-family:inherit;box-sizing:border-box;}
+.doc-just-input:focus{outline:none;border-color:#f59e0b;}
+.doc-just-actions{display:flex;gap:6px;margin-top:4px;}
 .doc-file-input{display:none;}
 .doc-select{max-width:170px;background:var(--bg-c);border:1px solid var(--bdr2);border-radius:var(--rs);color:var(--txt1);font-size:10px;padding:5px 7px;}
 
@@ -683,8 +689,21 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
 </div>
 
 <script>
-const DOCS=['Contrato Social / Estatuto','Cartão CNPJ','RG e CPF dos Sócios','Balanço Patrimonial (último)','DRE (último exercício)','Declaração IR PJ','Faturamento (últimos 12 meses)','Endividamento Bancário','Certidão Negativa Federal','Certidão Negativa Estadual','Notas Fiscais (amostra)','Lista de Sacados','Proposta Comercial Assinada'];
-const DOC_ALIASES={'Faturamento (últimos 12 meses)':'Faturamento (últimos 3 meses)'};
+const DOCS=[
+  'Certidão de Casamento / Pacto Antenupcial ou Certidão de Nascimento',
+  'Cartão CNPJ',
+  'Contrato Social (LTDA) ou Estatuto Social (S.A)',
+  'JUCESP ou outra Junta Comercial',
+  'Balancete assinado pelo Contador ou DEFIS',
+  'Balanço / DRE assinado pelo Contador (últimos 24 meses)',
+  'Faturamento assinado pelo Contador (últimos 12 meses)',
+  'Conta Bancária',
+  'Cópia do RG e CPF',
+  'Telefone e e-mail de todos os responsáveis',
+  'Comprovante de Endereço (empresa e todas as partes)',
+  'Imposto de Renda atualizado de todas as partes',
+  'Avalistas (CNH, Comprovante de end., IR e certidão)',
+];
 const RISK_ITEMS=['Concentração de Sacados','Prazo de Recebimento','Diversificação de Atividade','Histórico de Inadimplência','Capacidade de Reposição','Gestão Financeira','Porte do Cedente','Dependência de Clientes','Situação Fiscal','Garantias Oferecidas'];
 const STAGES=['comercial','credito','financeiro','diretoria'];
 const SN={comercial:'Comercial',credito:'Crédito',financeiro:'Financeiro',diretoria:'Diretoria',aprovado:'Aprovado',reprovado:'Reprovado'};
@@ -822,11 +841,10 @@ function normalizeDocs(p){
   if(!p)return;
   p.docs=p.docs||{};
   p.docFiles=p.docFiles||{};
+  p.docJustifications=p.docJustifications||{};
   DOCS.forEach(d=>{
-    const old=DOC_ALIASES[d];
-    if(p.docs[old]!==undefined&&p.docs[d]===undefined)p.docs[d]=p.docs[old];
     if(!Array.isArray(p.docFiles[d]))p.docFiles[d]=[];
-    p.docs[d]=p.docFiles[d].length>0;
+    p.docs[d]=p.docFiles[d].length>0||!!p.docJustifications[d];
   });
 }
 
@@ -837,7 +855,7 @@ function requiredDocCount(p){
 
 function missingRequiredDocs(p){
   normalizeDocs(p);
-  return DOCS.filter(d=>(p.docFiles[d]||[]).length===0);
+  return DOCS.filter(d=>(p.docFiles[d]||[]).length===0&&!p.docJustifications?.[d]);
 }
 
 function setSectionLocked(sectionId,locked){
@@ -1089,17 +1107,59 @@ function updSocio(i,k,val){const p=cur();if(p&&p.socios[i]&&canEditCurrent(p)&&c
 function renderDocs(){
   const p=cur();if(!p)return;
   normalizeDocs(p);
+  const canEdit=canEditCurrent(p);
   g('doc-list').innerHTML=DOCS.map((d,i)=>{
-    const files=p.docFiles[d]||[],done=files.length>0;
-    return `<div class="doc-item${done?' chk':''}">
-      <input type="checkbox" ${done?'checked':''} disabled>
-      <div class="doc-main"><div class="doc-name">${esc(d)}</div><div class="doc-meta">${done?`${files.length} arquivo${files.length!==1?'s':''} anexado${files.length!==1?'s':''}`:'Pendente de anexo obrigatório'}</div></div>
+    const files=p.docFiles[d]||[];
+    const done=files.length>0;
+    const just=(p.docJustifications||{})[d]||'';
+    const justified=!done&&!!just;
+    const cls=done?' chk':justified?' jst':'';
+    const meta=done
+      ?`${files.length} arquivo${files.length!==1?'s':''} anexado${files.length!==1?'s':''}`
+      :justified
+        ?`<span style="color:#f59e0b">✏️ Justificado: ${esc(just)}</span>`
+        :'Pendente — anexe o arquivo ou adicione uma justificativa';
+    const justArea=canEdit&&!done?`<div class="doc-just-area">
+        <textarea class="doc-just-input" id="just-${i}" placeholder="Justificativa para ausência deste documento...">${esc(just)}</textarea>
+        <div class="doc-just-actions">
+          <button class="btn btn-ghost btn-sm" onclick="saveJustification(${i})">💬 Salvar justificativa</button>
+          ${justified?`<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="clearJustification(${i})">Remover</button>`:''}
+        </div>
+      </div>`:'';
+    return `<div class="doc-item${cls}">
+      <input type="checkbox" ${done||justified?'checked':''} disabled>
+      <div class="doc-main">
+        <div class="doc-name">${esc(d)}</div>
+        <div class="doc-meta">${meta}</div>
+        ${justArea}
+      </div>
       <div class="doc-actions">
-        <label class="btn btn-ghost btn-sm${canEditCurrent(p)?'':' locked'}">Anexar<input class="doc-file-input" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onchange="handleDocFiles(${i},this)"></label>
+        <label class="btn btn-ghost btn-sm${canEdit?'':' locked'}">Anexar<input class="doc-file-input" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onchange="handleDocFiles(${i},this)"></label>
         ${files.length?`<select class="doc-select" id="doc-sel-${i}">${files.map((f,j)=>`<option value="${j}">${j+1}. ${esc(f.name)}</option>`).join('')}</select><button class="attach-btn" onclick="openDocFile(${i})">Abrir</button><button class="attach-btn" onclick="rmDocFile(${i})" style="color:var(--danger)">✕</button>`:''}
       </div>
     </div>`;
   }).join('');
+}
+
+function saveJustification(docIndex){
+  const p=cur();if(!p)return;
+  if(!canEditCurrent(p)){flash('Você só pode justificar na sua etapa.','w');return;}
+  const doc=DOCS[docIndex],input=g('just-'+docIndex);
+  if(!input)return;
+  const text=input.value.trim();
+  if(!text){flash('Digite a justificativa antes de salvar.','w');return;}
+  normalizeDocs(p);
+  p.docJustifications[doc]=text;
+  saveDB();renderDocs();flash('Justificativa salva.');
+}
+
+function clearJustification(docIndex){
+  const p=cur();if(!p)return;
+  if(!canEditCurrent(p)){flash('Você só pode editar na sua etapa.','w');return;}
+  const doc=DOCS[docIndex];
+  normalizeDocs(p);
+  delete p.docJustifications[doc];
+  saveDB();renderDocs();flash('Justificativa removida.','w');
 }
 
 
@@ -1239,7 +1299,7 @@ function avancar(){
   if(p.status==='comercial'&&!p.razao){flash('Informe a Razão Social','w');return;}
   if(p.status==='comercial'){
     const missing=missingRequiredDocs(p);
-    if(missing.length){flash(`Anexe os documentos obrigatórios: ${missing.slice(0,2).join(', ')}${missing.length>2?'...':''}`,'w');return;}
+    if(missing.length){flash(`${missing.length} documento${missing.length>1?'s':''} pendente${missing.length>1?'s':''}: ${missing.slice(0,2).map(d=>d.split(' ')[0]).join(', ')}${missing.length>2?` +${missing.length-2}`:''}. Anexe o arquivo ou adicione uma justificativa em cada um para avançar.`,'w');return;}
   }
   if(p.status==='credito'&&!p.cr_dec){flash('Registre a decisão de crédito','w');return;}
   if(p.status==='financeiro'&&!p.fi_dec){flash('Registre a decisão financeira','w');return;}
