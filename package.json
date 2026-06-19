@@ -1,8 +1,10 @@
 {
+  "name": "ag-esteira-credito",
+  "version": "1.0.0",
   "scripts": {
-    "build": "echo \"static app\""
+    "start": "node server.js"
   },
-  "dependencies": {
-    "@netlify/blobs": "^8.2.0"
+  "engines": {
+    "node": ">=18"
   }
 }
