@@ -1319,7 +1319,26 @@ async function initApp(){
       startSession(SESSION);
     }
   }
+  startPolling();
 }
+
+function startPolling(){
+  setInterval(async()=>{
+    if(!SESSION||cloudLoading)return;
+    try{
+      const res=await fetch('/api/state',{cache:'no-store'});
+      if(!res.ok)return;
+      const state=await res.json();
+      if(Array.isArray(state.DB)){DB=state.DB;}
+      if(Array.isArray(state.USERS)){USERS=state.USERS;}
+      if(Array.isArray(state.INVITES)){INVITES=state.INVITES;}
+      if(Array.isArray(state.NOTIFS)){NOTIFS=state.NOTIFS;}
+      persistLocal();
+      renderLista();updateNavCounts();updateMyBadge();renderNotifDot();
+    }catch{}
+  },30000);
+}
+
 initApp();
 </script>
 </body>
