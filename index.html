@@ -691,6 +691,30 @@ const SN={comercial:'Comercial',credito:'Crédito',financeiro:'Financeiro',diret
 const SC={comercial:'sb-comercial',credito:'sb-credito',financeiro:'sb-financeiro',diretoria:'sb-diretoria',aprovado:'sb-aprovado',reprovado:'sb-reprovado'};
 const STAGE_AREA={comercial:'Comercial',credito:'Análise de Crédito',financeiro:'Financeiro',diretoria:'Diretoria'};
 
+const SUPA_URL='https://swjsgefiuovnldknzmsk.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3anNnZWZpdW92bmxka256bXNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjcxOTksImV4cCI6MjA5NzQ0MzE5OX0.QtgE6XUsC785BSKtlnwqAlOXOs12GrPj82Gr2SpKVv0';
+const SUPA_BUCKET='ag-esteira-files';
+
+async function uploadToSupabase(file){
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path=Date.now()+Math.random().toString(36).slice(2,8)+'_'+safeName;
+  const res=await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`,{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+SUPA_KEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'false'},
+    body:file
+  });
+  if(!res.ok){const t=await res.text();throw new Error('Supabase: '+t);}
+  return 'sb:'+path;
+}
+function supaPublicUrl(key){
+  const path=key.startsWith('sb:')?key.slice(3):key;
+  return `${SUPA_URL}/storage/v1/object/public/${SUPA_BUCKET}/${path}`;
+}
+async function deleteSupaFile(key){
+  const path=key.startsWith('sb:')?key.slice(3):key;
+  try{await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}`,{method:'DELETE',headers:{'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({prefixes:[path]})});}catch{}
+}
+
 let DB      =JSON.parse(localStorage.getItem('ag_esteira_db')||'[]');
 let USERS   =JSON.parse(localStorage.getItem('ag_esteira_users')||'null');
 let INVITES =JSON.parse(localStorage.getItem('ag_esteira_invites')||'[]');
@@ -1067,21 +1091,6 @@ function renderDocs(){
   }).join('');
 }
 
-async function uploadToBlobs(file){
-  return new Promise((resolve,reject)=>{
-    const rd=new FileReader();
-    rd.onload=async e=>{
-      try{
-        const res=await fetch('/api/file',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({data:e.target.result,name:file.name,type:file.type,size:file.size})});
-        if(!res.ok)throw new Error('upload failed');
-        const {key}=await res.json();
-        resolve(key);
-      }catch(err){reject(err);}
-    };
-    rd.onerror=reject;
-    rd.readAsDataURL(file);
-  });
-}
 
 function handleDocFiles(docIndex,input){
   const p=cur();if(!p)return;
@@ -1089,10 +1098,10 @@ function handleDocFiles(docIndex,input){
   normalizeDocs(p);
   const doc=DOCS[docIndex];
   Array.from(input.files).forEach(async file=>{
-    if(file.size>10485760){flash(`"${file.name}" excede 10MB. Comprima o PDF antes de enviar.`,'w');return;}
+    if(file.size>20971520){flash(`"${file.name}" excede 20MB. Comprima o PDF antes de enviar.`,'w');return;}
     flash('Enviando...','ok');
     try{
-      const key=await uploadToBlobs(file);
+      const key=await uploadToSupabase(file);
       p.docFiles[doc].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
       p.docs[doc]=true;saveDB();renderDocs();addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${doc} · ${p.razao||p.id}`,STAGE_AREA[p.status]||'Todas');flash('Documento obrigatório anexado!');
     }catch(e){flash('Erro ao enviar arquivo. Tente novamente.','e');}
@@ -1108,8 +1117,11 @@ function selectedDocFile(docIndex){
 }
 
 function openDocFile(docIndex){
-  const picked=selectedDocFile(docIndex);if(!picked?.file?.data)return;
-  const l=document.createElement('a');l.href=picked.file.data;l.download=picked.file.name;l.click();
+  const picked=selectedDocFile(docIndex);if(!picked?.file)return;
+  const f=picked.file;
+  if(f.data){const l=document.createElement('a');l.href=f.data;l.download=f.name;l.click();return;}
+  if(f.key&&f.key.startsWith('sb:')){window.open(supaPublicUrl(f.key),'_blank');return;}
+  if(f.key){flash('Baixando...','ok');fetch('/api/file/'+f.key).then(r=>r.json()).then(d=>{const l=document.createElement('a');l.href=d.data;l.download=d.name;l.click();}).catch(()=>flash('Erro ao abrir arquivo.','e'));}
 }
 
 function rmDocFile(docIndex){
@@ -1117,6 +1129,10 @@ function rmDocFile(docIndex){
   if(!canEditCurrent(p)){flash('Você só pode remover documentos obrigatórios na sua etapa.','w');return;}
   const picked=selectedDocFile(docIndex);if(!picked?.file)return;
   if(!confirm(`Excluir "${picked.file.name}" de "${picked.doc}"?`))return;
+  if(picked.file.key){
+    if(picked.file.key.startsWith('sb:'))deleteSupaFile(picked.file.key);
+    else fetch('/api/file/'+picked.file.key,{method:'DELETE'}).catch(()=>{});
+  }
   p.docFiles[picked.doc].splice(picked.idx,1);
   p.docs[picked.doc]=p.docFiles[picked.doc].length>0;
   saveDB();renderDocs();flash('Documento removido.','w');
@@ -1267,10 +1283,10 @@ function handleFiles(input){
   const p=cur();if(!p)return;
   if(!canEditCurrent(p)){flash('Você só pode anexar arquivos na sua etapa.','w');input.value='';return;}
   Array.from(input.files).forEach(async file=>{
-    if(file.size>10485760){flash(`"${file.name}" excede 10MB. Comprima o PDF antes de enviar.`,'w');return;}
+    if(file.size>20971520){flash(`"${file.name}" excede 20MB. Comprima o PDF antes de enviar.`,'w');return;}
     flash('Enviando...','ok');
     try{
-      const key=await uploadToBlobs(file);
+      const key=await uploadToSupabase(file);
       p.attachments.push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
       saveDB();renderAttach(p.attachments);addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${p.razao||p.id}`,STAGE_AREA[p.status]||'Todas');flash('Anexado!');
     }catch(e){flash('Erro ao enviar arquivo. Tente novamente.','e');}
@@ -1281,6 +1297,7 @@ async function dlFile(i){
   const a=p.attachments[i];if(!a)return;
   if(a.data){const l=document.createElement('a');l.href=a.data;l.download=a.name;l.click();return;}
   if(!a.key){flash('Arquivo não disponível.','e');return;}
+  if(a.key.startsWith('sb:')){window.open(supaPublicUrl(a.key),'_blank');return;}
   flash('Baixando...','ok');
   try{
     const res=await fetch('/api/file/'+a.key);
@@ -1288,7 +1305,17 @@ async function dlFile(i){
     const l=document.createElement('a');l.href=f.data;l.download=f.name;l.click();
   }catch(e){flash('Erro ao baixar arquivo.','e');}
 }
-function rmFile(i){const p=cur();if(!p)return;if(!canEditCurrent(p)){flash('Você só pode remover anexos na sua etapa.','w');return;}const a=p.attachments[i];if(a&&!confirm(`Excluir "${a.name}" dos documentos complementares?`))return;if(a.key)fetch('/api/file/'+a.key,{method:'DELETE'}).catch(()=>{});p.attachments.splice(i,1);saveDB();renderAttach(p.attachments);flash('Removido.','w');}
+function rmFile(i){
+  const p=cur();if(!p)return;
+  if(!canEditCurrent(p)){flash('Você só pode remover anexos na sua etapa.','w');return;}
+  const a=p.attachments[i];
+  if(a&&!confirm(`Excluir "${a.name}" dos documentos complementares?`))return;
+  if(a.key){
+    if(a.key.startsWith('sb:'))deleteSupaFile(a.key);
+    else fetch('/api/file/'+a.key,{method:'DELETE'}).catch(()=>{});
+  }
+  p.attachments.splice(i,1);saveDB();renderAttach(p.attachments);flash('Removido.','w');
+}
 
 function fmtSize(b){return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB';}
 
