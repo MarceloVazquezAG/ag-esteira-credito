@@ -573,7 +573,14 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
 
       <!-- E2: CRÉDITO -->
       <div class="stg" id="sec-cre" style="display:none;">
-        <div class="stg-hd"><div class="stg-ttl"><span class="stg-num">02</span>Análise de Crédito</div></div>
+        <div class="stg-hd">
+          <div class="stg-ttl"><span class="stg-num">02</span>Análise de Crédito</div>
+          <label class="btn btn-ghost btn-sm" id="cre-attach-btn" style="cursor:pointer;font-size:11px;">
+            📎 Anexar documentação
+            <input type="file" id="cre-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" style="display:none" onchange="handleCreFiles(this)">
+          </label>
+        </div>
+        <div id="cre-attach-list" style="display:none;padding:10px 18px 0;border-bottom:1px solid var(--bdr2);"></div>
         <div class="stg-body">
           <div id="res-com" style="background:var(--blue-dim);border:1px solid var(--bdr);border-radius:var(--rs);padding:10px 14px;margin-bottom:13px;font-size:11px;color:var(--txt2);"></div>
           <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:8px;">Matriz de Risco</div>
@@ -981,6 +988,7 @@ function applyPermissions(p){
   setSectionLocked('sec-com',!canCom);
   setSectionLocked('sec-cre',!canCre);
   setSectionLocked('sec-fin',!canFin);
+  const creBtn=g('cre-attach-btn');if(creBtn){creBtn.style.display=canCre?'inline-flex':'none';}
   const docsLocked=!canEditCurrent(p);
   const fileInput=g('file-input');if(fileInput)fileInput.disabled=docsLocked;
   g('sec-docs')?.querySelector('.upload-zone')?.classList.toggle('locked',docsLocked);
@@ -1154,7 +1162,7 @@ function gerarProto(){const dt=new Date();return 'COM-'+String(dt.getFullYear())
 
 function novoProcesso(){
   if(!canEditStage('comercial')){flash('Somente Comercial ou Admin pode criar processo.','w');return;}
-  const p={id:gerarProto(),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:{},docFiles:{},docJustifications:{},risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),riskFiles:{},riskNaoTem:{},riskComentarios:{},cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
+  const p={id:gerarProto(),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:{},docFiles:{},docJustifications:{},risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),riskFiles:{},riskNaoTem:{},riskComentarios:{},creAttachments:[],cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
   DB.push(p);saveDB();curId=p.id;showDetalhe(p);
 }
 
@@ -1172,7 +1180,7 @@ function fillForm(p){
   v('fi-pl',p.pl||'');v('fi-div',p.div||'');v('fi-dup',p.dup||'');
   v('fi-anal',p.fi_analista||'');v('fi-data',p.fi_data||'');
   v('fi-par',p.fi_parecer||'');v('hd-fi-dec',p.fi_dec||'');
-  renderSocios(p.socios||[]);renderDocs();renderRisk(p);renderAttach(p.attachments||[]);
+  renderSocios(p.socios||[]);renderDocs();renderRisk(p);renderCreAttach(p.creAttachments||[]);renderAttach(p.attachments||[]);
   renderDirVotes(p);
   g('res-com').innerHTML=p.razao?`<strong style="color:var(--blue)">${p.razao}</strong> · ${p.tipo_op||''} · R$ ${p.limite||'—'}`:'Aguardando dados.';
   g('dir-cr-dec').textContent=p.cr_dec||'Aguardando';g('dir-cr-dec').style.color=dcol(p.cr_dec);
@@ -1611,6 +1619,54 @@ function renderAttach(list){
   const ic={pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',png:'🖼️',jpg:'🖼️',jpeg:'🖼️'};
   g('attach-list').innerHTML=list.map((a,i)=>{const ext=(a.name||'').split('.').pop().toLowerCase();return `<div class="attach-item"><div class="attach-icon">${ic[ext]||'📎'}</div><div class="attach-info"><div class="attach-name">${esc(a.name)}</div><div class="attach-meta">${esc(a.uploader)} · ${esc(a.date)} · ${fmtSize(a.size)}</div></div>${(a.data||a.key)?`<button class="attach-btn" onclick="dlFile(${i})">⬇</button>`:''}<button class="attach-btn" onclick="rmFile(${i})" style="color:var(--danger)">✕</button></div>`;}).join('');
 }
+// ── CRÉDITO ATTACHMENTS ──
+function renderCreAttach(list){
+  const el=g('cre-attach-list');if(!el)return;
+  if(!list||!list.length){el.style.display='none';return;}
+  const p=cur();
+  const canEdit=p&&canEditStage('credito')&&p.status==='credito';
+  el.style.display='block';
+  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;padding-bottom:10px;">${list.map((f,i)=>{
+    const ext=(f.name||'').split('.').pop().toLowerCase();
+    const ic={pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',png:'🖼️',jpg:'🖼️',jpeg:'🖼️'}[ext]||'📎';
+    return `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:6px;padding:4px 9px;font-size:10px;color:#c4b5fd;cursor:pointer" onclick="openCreFile(${i})">${ic} ${esc(f.name)}<span style="color:var(--txt3);margin-left:2px">${f.date||''}</span>${canEdit?`<span onclick="event.stopPropagation();rmCreFile(${i})" style="color:#ef4444;margin-left:3px;cursor:pointer">✕</span>`:''}</div>`;
+  }).join('')}</div>`;
+}
+function handleCreFiles(input){
+  const pid=curId;
+  const p=DB.find(x=>x.id===pid);if(!p)return;
+  if(!canEditStage('credito')||p.status!=='credito'){flash('Somente Crédito pode anexar aqui.','w');input.value='';return;}
+  Array.from(input.files).forEach(async file=>{
+    if(file.size>20971520){flash(`"${file.name}" excede 20MB.`,'w');return;}
+    uploadingCount++;
+    flash('Enviando...','ok');
+    try{
+      const key=await uploadToSupabase(file);
+      const p2=DB.find(x=>x.id===pid);if(!p2)return;
+      p2.creAttachments=p2.creAttachments||[];
+      p2.creAttachments.push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
+      saveDB();renderCreAttach(p2.creAttachments);flash('Documento anexado!');
+    }catch(e){flash('Erro ao enviar arquivo.','e');}
+    finally{uploadingCount--;}
+  });
+  input.value='';
+}
+function openCreFile(i){
+  const p=cur();if(!p)return;
+  const f=(p.creAttachments||[])[i];if(!f)return;
+  if(f.key&&f.key.startsWith('sb:'))window.open(supaPublicUrl(f.key),'_blank');
+  else flash('Arquivo não disponível.','e');
+}
+function rmCreFile(i){
+  const p=cur();if(!p)return;
+  if(!canEditStage('credito')||p.status!=='credito'){flash('Somente Crédito pode remover.','w');return;}
+  const f=(p.creAttachments||[])[i];
+  if(!confirm(`Remover "${f?.name}"?`))return;
+  if(f?.key){if(f.key.startsWith('sb:'))deleteSupaFile(f.key);else fetch('/api/file/'+f.key,{method:'DELETE'}).catch(()=>{});}
+  p.creAttachments.splice(i,1);
+  saveDB();renderCreAttach(p.creAttachments);flash('Removido.','w');
+}
+
 function handleFiles(input){
   const pid=curId;
   const p=cur();if(!p)return;
