@@ -3,36 +3,29 @@ import { getStore } from '@netlify/blobs';
 const HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
-  'access-control-allow-origin': '*',
 };
 
-export const handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: HEADERS, body: '' };
+export default async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('', { status: 204, headers: HEADERS });
   }
 
-  let store;
-  try {
-    store = getStore({ name: 'ag-esteira', consistency: 'strong' });
-  } catch (e) {
-    console.error('Blobs init error:', e.message);
-    return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: 'storage_unavailable' }) };
-  }
+  const store = getStore('ag-esteira');
 
-  if (event.httpMethod === 'GET') {
+  if (req.method === 'GET') {
     try {
       const raw = await store.get('state');
-      const state = raw ? JSON.parse(raw) : {};
-      return { statusCode: 200, headers: HEADERS, body: JSON.stringify(state) };
+      return new Response(raw || '{}', { status: 200, headers: HEADERS });
     } catch (e) {
-      console.error('Blobs GET error:', e.message);
-      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({}) };
+      console.error('GET error:', e.message);
+      return new Response('{}', { status: 200, headers: HEADERS });
     }
   }
 
-  if (event.httpMethod === 'POST') {
+  if (req.method === 'POST') {
     try {
-      const incoming = JSON.parse(event.body || '{}');
+      const text = await req.text();
+      const incoming = JSON.parse(text || '{}');
       const state = {
         DB:      Array.isArray(incoming.DB)      ? incoming.DB      : [],
         USERS:   Array.isArray(incoming.USERS)   ? incoming.USERS   : null,
@@ -41,12 +34,14 @@ export const handler = async (event) => {
         updatedAt: new Date().toISOString(),
       };
       await store.set('state', JSON.stringify(state));
-      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
+      return new Response('{"ok":true}', { status: 200, headers: HEADERS });
     } catch (e) {
-      console.error('Blobs POST error:', e.message);
-      return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: e.message }) };
+      console.error('POST error:', e.message);
+      return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: HEADERS });
     }
   }
 
-  return { statusCode: 405, headers: HEADERS, body: JSON.stringify({ error: 'method not allowed' }) };
+  return new Response('{"error":"method not allowed"}', { status: 405, headers: HEADERS });
 };
+
+export const config = { path: '/api/state' };
