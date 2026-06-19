@@ -1042,9 +1042,11 @@ function renderLista(){
 }
 
 // ── DETALHE ──
+function gerarProto(){const dt=new Date();return 'COM-'+String(dt.getFullYear()).slice(2)+String(dt.getMonth()+1).padStart(2,'0')+String(dt.getDate()).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9000)+1000);}
+
 function novoProcesso(){
   if(!canEditStage('comercial')){flash('Somente Comercial ou Admin pode criar processo.','w');return;}
-  const p={id:proto(0),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:DOCS.reduce((o,d)=>({...o,[d]:false}),{}),docFiles:DOCS.reduce((o,d)=>({...o,[d]:[]}),{}),risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
+  const p={id:gerarProto(),abertura:new Date().toISOString().slice(0,10),razao:'',cnpj:'',atividade:'',contato:'',tipo_op:'Convencional',limite:'',prazo:'12',status:'comercial',socios:[],sacados:'',narrativa:'',docs:{},docFiles:{},docJustifications:{},risk:RISK_ITEMS.reduce((o,k)=>({...o,[k]:'Baixo'}),{}),cr_sacados:'',cr_parecer:'',cr_dec:'',fat:'',cmv:'',mb:'',pl:'',div:'',dup:'',fi_analista:'',fi_data:'',fi_parecer:'',fi_dec:'',dir_votes:[],motivo_rep:'',blacklist:false,attachments:[]};
   DB.push(p);saveDB();curId=p.id;showDetalhe(p);
 }
 
@@ -1117,23 +1119,22 @@ function renderDocs(){
 }
 
 function saveJustification(docIndex){
-  const p=cur();if(!p)return;
+  const p=DB.find(x=>x.id===curId);if(!p)return;
   if(!canEditCurrent(p)){flash('Você só pode justificar na sua etapa.','w');return;}
   const doc=DOCS[docIndex],input=g('just-'+docIndex);
   if(!input)return;
   const text=input.value.trim();
   if(!text){flash('Digite a justificativa antes de salvar.','w');return;}
-  normalizeDocs(p);
+  if(!p.docJustifications)p.docJustifications={};
   p.docJustifications[doc]=text;
   saveDB();renderDocs();flash('Justificativa salva.');
 }
 
 function clearJustification(docIndex){
-  const p=cur();if(!p)return;
+  const p=DB.find(x=>x.id===curId);if(!p)return;
   if(!canEditCurrent(p)){flash('Você só pode editar na sua etapa.','w');return;}
-  const doc=DOCS[docIndex];
-  normalizeDocs(p);
-  delete p.docJustifications[doc];
+  if(!p.docJustifications)p.docJustifications={};
+  delete p.docJustifications[DOCS[docIndex]];
   saveDB();renderDocs();flash('Justificativa removida.','w');
 }
 
