@@ -116,12 +116,28 @@ nav{padding:10px 8px;flex:1;overflow-y:auto;}
 .btn-danger:hover{background:rgba(239,68,68,.22);}
 .btn-warn{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.25);}
 .btn-warn:hover{background:rgba(245,158,11,.22);}
-.devol-hist{margin-top:14px;max-height:160px;overflow-y:auto;}
-.devol-item{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.18);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:11px;}
-.devol-item-hd{display:flex;justify-content:space-between;margin-bottom:3px;}
-.devol-item-from{color:var(--warn);font-weight:600;}
-.devol-item-ts{color:var(--txt2);}
-.devol-item-motivo{color:var(--txt1);line-height:1.4;}
+/* MODAL DEVOLVER */
+.devol-header{background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.04));border-bottom:1px solid rgba(245,158,11,.2);border-radius:var(--r) var(--r) 0 0;padding:20px 24px 16px;margin:-28px -28px 0;display:flex;align-items:flex-start;gap:14px;}
+.devol-icon{width:38px;height:38px;border-radius:10px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.devol-title{font-size:15px;font-weight:800;color:var(--txt1);margin-bottom:3px;}
+.devol-subtitle{font-size:11px;color:var(--txt2);line-height:1.4;}
+.devol-flow{display:flex;align-items:center;gap:8px;margin:18px 0 16px;}
+.devol-stage{display:inline-flex;align-items:center;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;}
+.devol-stage.from{background:rgba(0,200,190,.1);border:1px solid rgba(0,200,190,.25);color:var(--blue);}
+.devol-stage.to{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--warn);}
+.devol-arrow{color:var(--txt3);font-size:14px;}
+.devol-hist{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.devol-hist::-webkit-scrollbar{width:4px;}
+.devol-hist::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
+.devol-item{position:relative;padding:10px 12px 10px 16px;border-radius:8px;background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.15);}
+.devol-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(245,158,11,.5);border-radius:3px 0 0 3px;}
+.devol-item-hd{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;}
+.devol-item-from{font-size:10px;font-weight:700;color:var(--warn);}
+.devol-item-user{font-size:10px;color:var(--txt2);}
+.devol-item-ts{font-size:9px;color:var(--txt3);margin-left:auto;}
+.devol-item-motivo{font-size:11px;color:var(--txt1);line-height:1.5;}
+.devol-hist-label{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:8px;}
+.devol-hist-label::after{content:'';flex:1;height:1px;background:var(--bdr2);}
 .btn-sm{padding:5px 10px;font-size:11px;}
 
 /* CARDS */
@@ -714,21 +730,35 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
 
 <!-- MODAL DEVOLVER -->
 <div class="modal-bg" id="modal-devolver">
-  <div class="modal" style="width:440px">
-    <div class="modal-hd">
-      <span class="modal-title">↩ Devolver Processo</span>
-      <button class="btn btn-ghost btn-sm" onclick="fecharDevolucao()">✕</button>
+  <div class="modal" style="width:460px;padding:28px;">
+    <div class="devol-header">
+      <div class="devol-icon">↩</div>
+      <div>
+        <div class="devol-title">Devolver Processo</div>
+        <div class="devol-subtitle" id="devol-destino-txt">Retorna o processo para a etapa anterior para revisão.</div>
+      </div>
+      <button class="modal-close" style="margin-left:auto" onclick="fecharDevolucao()">×</button>
     </div>
-    <div style="font-size:12px;color:var(--txt2);margin-bottom:14px;" id="devol-destino-txt"></div>
-    <label class="form-label">Justificativa de devolução <span style="color:var(--danger)">*</span></label>
-    <textarea id="devol-motivo" class="form-input" rows="4" placeholder="Descreva o motivo da devolução…" style="resize:vertical;min-height:80px;"></textarea>
-    <div id="devol-hist-wrap" style="display:none">
-      <div style="font-size:11px;color:var(--txt3);margin-top:14px;margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px;">Histórico de devoluções</div>
+
+    <div class="devol-flow">
+      <div class="devol-stage from" id="devol-from-badge">—</div>
+      <div class="devol-arrow">→</div>
+      <div class="devol-stage to" id="devol-to-badge">—</div>
+    </div>
+
+    <div class="fld" style="margin-bottom:6px;">
+      <label>Justificativa <span style="color:var(--danger)">*</span></label>
+      <textarea id="devol-motivo" rows="4" placeholder="Descreva o motivo da devolução, o que precisa ser corrigido ou complementado…"></textarea>
+    </div>
+
+    <div id="devol-hist-wrap" style="display:none;margin-top:20px;">
+      <div class="devol-hist-label">Histórico de devoluções</div>
       <div class="devol-hist" id="devol-hist"></div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end;">
-      <button class="btn btn-ghost btn-sm" onclick="fecharDevolucao()">Cancelar</button>
-      <button class="btn btn-warn btn-sm" onclick="confirmarDevolucao()">↩ Confirmar Devolução</button>
+
+    <div style="display:flex;gap:8px;margin-top:22px;justify-content:flex-end;align-items:center;">
+      <button class="btn btn-ghost" onclick="fecharDevolucao()" style="font-size:12px;">Cancelar</button>
+      <button class="btn btn-warn" onclick="confirmarDevolucao()" style="font-size:12px;padding:9px 18px;">↩ Confirmar Devolução</button>
     </div>
   </div>
 </div>
@@ -1527,12 +1557,22 @@ function devolverModal(){
   const idx=STAGES.indexOf(p.status);
   if(idx<=0){flash('Processo já está na primeira etapa.','w');return;}
   const prev=STAGES[idx-1];
-  g('devol-destino-txt').textContent=`O processo será devolvido de "${SN[p.status]}" para "${SN[prev]}".`;
+  g('devol-from-badge').textContent=SN[p.status]||p.status;
+  g('devol-to-badge').textContent=SN[prev]||prev;
+  g('devol-destino-txt').textContent=`O processo retorna para revisão pela equipe de ${SN[prev]}.`;
   g('devol-motivo').value='';
   const hist=(p.devolucoes||[]);
   if(hist.length){
     g('devol-hist-wrap').style.display='block';
-    g('devol-hist').innerHTML=hist.slice().reverse().map(d=>`<div class="devol-item"><div class="devol-item-hd"><span class="devol-item-from">${SN[d.from]||d.from} → ${SN[d.to]||d.to}</span><span class="devol-item-ts">${d.ts} · ${d.user}</span></div><div class="devol-item-motivo">${d.motivo}</div></div>`).join('');
+    g('devol-hist').innerHTML=hist.slice().reverse().map(d=>`
+      <div class="devol-item">
+        <div class="devol-item-hd">
+          <span class="devol-item-from">${SN[d.from]||d.from} → ${SN[d.to]||d.to}</span>
+          <span class="devol-item-user">${d.user}</span>
+          <span class="devol-item-ts">${d.ts}</span>
+        </div>
+        <div class="devol-item-motivo">${d.motivo}</div>
+      </div>`).join('');
   } else {
     g('devol-hist-wrap').style.display='none';
   }
