@@ -820,20 +820,15 @@ const SUPA_BUCKET='ag-esteira-files';
 let uploadingCount=0;
 
 async function uploadToSupabase(file){
-  uploadingCount++;
   const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   const path=Date.now()+Math.random().toString(36).slice(2,8)+'_'+safeName;
-  try{
-    const res=await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`,{
-      method:'POST',
-      headers:{'Authorization':'Bearer '+SUPA_KEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'false'},
-      body:file
-    });
-    if(!res.ok){const t=await res.text();throw new Error('Supabase: '+t);}
-    return 'sb:'+path;
-  }finally{
-    uploadingCount--;
-  }
+  const res=await fetch(`${SUPA_URL}/storage/v1/object/${SUPA_BUCKET}/${path}`,{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+SUPA_KEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'false'},
+    body:file
+  });
+  if(!res.ok){const t=await res.text();throw new Error('Supabase: '+t);}
+  return 'sb:'+path;
 }
 function supaPublicUrl(key){
   const path=key.startsWith('sb:')?key.slice(3):key;
@@ -1254,6 +1249,7 @@ function handleDocFiles(docIndex,input){
   const doc=DOCS[docIndex];
   Array.from(input.files).forEach(async file=>{
     if(file.size>20971520){flash(`"${file.name}" excede 20MB. Comprima o PDF antes de enviar.`,'w');return;}
+    uploadingCount++;
     flash('Enviando...','ok');
     try{
       const key=await uploadToSupabase(file);
@@ -1262,6 +1258,7 @@ function handleDocFiles(docIndex,input){
       p2.docFiles[doc].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
       p2.docs[doc]=true;saveDB();renderDocs();addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${doc} · ${p2.razao||p2.id}`,STAGE_AREA[p2.status]||'Todas');flash('Documento obrigatório anexado!');
     }catch(e){flash('Erro ao enviar arquivo. Tente novamente.','e');}
+    finally{uploadingCount--;}
   });
   input.value='';
 }
@@ -1328,6 +1325,7 @@ function handleRiskFile(idx,input){
   const item=RISK_ITEMS[idx];
   Array.from(input.files).forEach(async file=>{
     if(file.size>20971520){flash(`"${file.name}" excede 20MB.`,'w');return;}
+    uploadingCount++;
     flash('Enviando...','ok');
     try{
       const key=await uploadToSupabase(file);
@@ -1337,6 +1335,7 @@ function handleRiskFile(idx,input){
       p2.riskFiles[item].push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
       saveDB();renderRisk(p2);flash('Arquivo anexado!');
     }catch(e){flash('Erro ao enviar arquivo.','e');}
+    finally{uploadingCount--;}
   });
   input.value='';
 }
@@ -1613,6 +1612,7 @@ function handleFiles(input){
   if(!canEditCurrent(p)){flash('Você só pode anexar arquivos na sua etapa.','w');input.value='';return;}
   Array.from(input.files).forEach(async file=>{
     if(file.size>20971520){flash(`"${file.name}" excede 20MB. Comprima o PDF antes de enviar.`,'w');return;}
+    uploadingCount++;
     flash('Enviando...','ok');
     try{
       const key=await uploadToSupabase(file);
@@ -1621,6 +1621,7 @@ function handleFiles(input){
       p2.attachments.push({name:file.name,size:file.size,type:file.type,date:new Date().toLocaleDateString('pt-BR'),uploader:SESSION?.nome||'Sistema',key});
       saveDB();renderAttach(p2.attachments);addNotif('doc',`📎 ${SESSION?.nome||'Sistema'} anexou "${file.name}" em ${p2.razao||p2.id}`,STAGE_AREA[p2.status]||'Todas');flash('Anexado!');
     }catch(e){flash('Erro ao enviar arquivo. Tente novamente.','e');}
+    finally{uploadingCount--;}
   });input.value='';
 }
 async function dlFile(i){
