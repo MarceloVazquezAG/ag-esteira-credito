@@ -208,14 +208,29 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
 .dvc{border-radius:var(--rs);padding:14px;border:1px solid var(--bdr2);background:var(--bg-in);transition:all var(--tr);}
 .dvc.ok{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.05);}
 .dvc.no{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.05);}
+.dvc.pend{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.05);}
 .dvc.mine{border-color:rgba(0,200,190,.3);background:rgba(0,200,190,.06);}
 .dvc-name{font-size:12px;font-weight:700;margin-bottom:3px;}
 .dvc-status{font-size:10px;font-weight:700;margin-bottom:6px;}
 .dvc-status.ok{color:var(--ok);}
 .dvc-status.no{color:var(--danger);}
+.dvc-status.pend{color:var(--warn);}
 .dvc-status.wait{color:var(--txt3);}
 .dvc-obs{font-size:10px;color:var(--txt2);font-style:italic;margin-bottom:6px;line-height:1.4;}
 .dvc-ts{font-size:9px;color:var(--txt3);}
+/* VOTE OPTIONS */
+.dvopt-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.dvopt{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--rs);font-size:11px;font-weight:700;cursor:pointer;border:2px solid transparent;transition:all var(--tr);}
+.dvopt-apr{border-color:rgba(16,185,129,.35);color:var(--ok);background:rgba(16,185,129,.07);}
+.dvopt-apr:hover,.dvopt-apr.active{background:rgba(16,185,129,.18);box-shadow:0 0 12px rgba(16,185,129,.25);}
+.dvopt-pend{border-color:rgba(245,158,11,.35);color:var(--warn);background:rgba(245,158,11,.07);}
+.dvopt-pend:hover,.dvopt-pend.active{background:rgba(245,158,11,.18);}
+.dvopt-rep{border-color:rgba(239,68,68,.35);color:var(--danger);background:rgba(239,68,68,.07);}
+.dvopt-rep:hover,.dvopt-rep.active{background:rgba(239,68,68,.18);}
+/* isDiretor toggle */
+.dir-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;}
+.dir-toggle input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px;cursor:pointer;}
+.dir-badge{font-size:9px;background:rgba(0,200,190,.15);color:var(--blue);border:1px solid rgba(0,200,190,.3);border-radius:4px;padding:1px 6px;font-weight:700;}
 .dir-progress{background:var(--bg-in);border:1px solid var(--bdr2);border-radius:var(--rs);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;}
 .dp-bar-wrap{flex:1;background:var(--bg-c2);border-radius:4px;height:6px;overflow:hidden;}
 .dp-bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--ok));border-radius:4px;transition:width .4s ease;}
@@ -608,11 +623,23 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
           </div>
           <div class="dir-votes-grid" id="dir-votes-grid"></div>
           <div id="my-vote-section" style="display:none;">
-            <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:8px;">Seu Voto</div>
-            <div class="fld" style="margin-bottom:10px;"><label>Observação (opcional)</label><textarea id="dir-obs-mine" placeholder="Comentário para o registro..."></textarea></div>
-            <div class="dec-row">
-              <div class="dec-btn d-apr" onclick="castVote('Aprovado')">✓ Aprovar</div>
-              <div class="dec-btn d-rep" onclick="castVote('Reprovado')">✕ Reprovar</div>
+            <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:10px;">Seu Voto</div>
+            <div class="fld" style="margin-bottom:10px;"><label>Comentário (opcional)</label><textarea id="dir-obs-mine" rows="2" placeholder="Observações, condicionantes, motivo..."></textarea></div>
+            <div class="dvopt-row">
+              <div class="dvopt dvopt-apr" id="dvopt-apr" onclick="selectVoteOpt('Aprovado')">✓ Aprovar</div>
+              <div class="dvopt dvopt-pend" id="dvopt-pend" onclick="selectVoteOpt('Pendenciado')">⏸ Pendenciar</div>
+              <div class="dvopt dvopt-rep" id="dvopt-rep" onclick="selectVoteOpt('Reprovado')">✕ Reprovar</div>
+            </div>
+            <div id="pend-dest-row" style="display:none;margin-top:10px;">
+              <div class="fld"><label>Enviar para qual etapa? <span style="color:var(--danger)">*</span></label>
+              <select id="pend-dest" class="form-input" style="margin-top:4px;">
+                <option value="comercial">Comercial</option>
+                <option value="credito">Análise de Crédito</option>
+                <option value="financeiro">Financeiro</option>
+              </select></div>
+            </div>
+            <div id="vote-confirm-wrap" style="display:none;margin-top:12px;">
+              <button class="btn btn-primary btn-sm" onclick="castVote()">Confirmar Voto</button>
             </div>
           </div>
           <div id="voted-msg" style="display:none;font-size:11px;color:var(--txt2);background:var(--blue-dim);border:1px solid var(--bdr);border-radius:var(--rs);padding:10px 13px;margin-top:8px;"></div>
@@ -659,7 +686,7 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
           <button class="btn btn-primary btn-sm" onclick="openModalUser()">+ Convidar Usuário</button>
         </div>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>E-mail</th><th>Nome</th><th>Perfil</th><th>Área</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>E-mail</th><th>Nome</th><th>Perfil</th><th>Área</th><th>Status</th><th>Diretor</th><th></th></tr></thead>
           <tbody id="users-body"></tbody>
         </table></div>
       </div>
@@ -918,7 +945,7 @@ function applyPermissions(p){
   const canCom=canEditStage('comercial')&&current==='comercial';
   const canCre=canEditStage('credito')&&current==='credito';
   const canFin=canEditStage('financeiro')&&current==='financeiro';
-  const canDir=canEditStage('diretoria')&&current==='diretoria';
+  const canDir=current==='diretoria'&&SESSION&&(SESSION.isDiretor||getDirectors().find(d=>d.email===SESSION.email));
   setSectionLocked('sec-com',!canCom);
   setSectionLocked('sec-cre',!canCre);
   setSectionLocked('sec-fin',!canFin);
@@ -938,6 +965,7 @@ function applyPermissions(p){
   if(note){
     note.style.display='block';
     if(canEditCurrent(p))note.innerHTML=isAdmin()?`Acesso Admin: você pode editar esta etapa e avançar o processo.`:`Sua área pode editar esta etapa (${SN[p.status]||p.status}) e avançar o processo.`;
+    else if(canDir)note.innerHTML=`Deliberação da Diretoria: você está habilitado para votar neste processo.`;
     else note.innerHTML=`Modo visualização: você pode acompanhar a esteira, mas só edita processos quando eles estiverem na sua área.`;
   }
 }
@@ -1298,49 +1326,111 @@ function rmRiskFile(idx,fi){
   saveDB();renderRisk(p);flash('Arquivo removido.','w');
 }
 
-// ── DIRETORIA 3 VOTOS ──
+// ── DIRETORIA ──
+let _selectedVoteOpt=null;
+
+function getDirectors(){return USERS.filter(u=>u.isDiretor&&u.active);}
+
+function selectVoteOpt(decision){
+  _selectedVoteOpt=decision;
+  ['apr','pend','rep'].forEach(k=>{g('dvopt-'+k)?.classList.remove('active');});
+  const map={Aprovado:'apr',Pendenciado:'pend',Reprovado:'rep'};
+  g('dvopt-'+map[decision])?.classList.add('active');
+  g('pend-dest-row').style.display=decision==='Pendenciado'?'block':'none';
+  g('vote-confirm-wrap').style.display='block';
+}
+
 function renderDirVotes(p){
   if(p.status!=='diretoria'&&p.status!=='aprovado'&&p.status!=='reprovado')return;
-  const directors=USERS.filter(u=>u.area==='Diretoria'&&u.active);
-  const votes=p.dir_votes||[];
-  directors.forEach(d=>{if(!votes.find(v=>v.login===d.email))votes.push({login:d.email,nome:d.nome,decision:null,obs:'',ts:null});});
-  if(isAdmin()&&SESSION&&!votes.find(v=>v.login===SESSION.email))votes.push({login:SESSION.email,nome:SESSION.nome,decision:null,obs:'',ts:null});
-  // garantir ao menos 3 slots demo se não houver diretores
-  while(votes.length<3)votes.push({login:`demo${votes.length+1}@ag`,nome:`Sócio ${votes.length+1}`,decision:null,obs:'',ts:null});
-  p.dir_votes=votes;
+  const directors=getDirectors();
+  p.dir_votes=p.dir_votes||[];
+  // garantir slots para todos os diretores flagados
+  directors.forEach(d=>{if(!p.dir_votes.find(v=>v.login===d.email))p.dir_votes.push({login:d.email,nome:d.nome,decision:null,obs:'',pendencia_para:null,ts:null});});
 
-  const needed=3,aprovados=votes.filter(v=>v.decision==='Aprovado').length;
+  const needed=directors.length||3;
+  const aprovados=p.dir_votes.filter(v=>v.decision==='Aprovado').length;
+  const pendentes=p.dir_votes.filter(v=>!v.decision).length;
   g('dp-bar').style.width=`${(aprovados/needed)*100}%`;
-  g('dp-label').textContent=`${aprovados} de ${needed} aprovação${needed>1?'ões':''}`;
+  g('dp-label').textContent=`${aprovados}/${needed} aprovações · ${pendentes} aguardando`;
 
-  g('dir-votes-grid').innerHTML=votes.slice(0,3).map(v=>{
-    let cls='',sCls='wait',sTxt='Aguardando voto';
+  const grid=g('dir-votes-grid');
+  const slots=directors.length?directors.map(d=>p.dir_votes.find(v=>v.login===d.email)||{login:d.email,nome:d.nome,decision:null,obs:'',ts:null}):p.dir_votes.slice(0,3);
+  grid.innerHTML=slots.map(v=>{
+    let cls='',sCls='wait',sTxt='Aguardando';
     if(v.decision==='Aprovado'){cls='ok';sCls='ok';sTxt='✓ Aprovado';}
     else if(v.decision==='Reprovado'){cls='no';sCls='no';sTxt='✕ Reprovado';}
+    else if(v.decision==='Pendenciado'){cls='pend';sCls='pend';sTxt='⏸ Pendenciado';}
     const isMine=SESSION&&SESSION.email===v.login;
-    return `<div class="dvc ${cls}${isMine?' mine':''}"><div class="dvc-name">${v.nome}</div><div class="dvc-status ${sCls}">${sTxt}</div>${v.obs?`<div class="dvc-obs">"${v.obs}"</div>`:''}${v.ts?`<div class="dvc-ts">${v.ts}</div>`:''}</div>`;
+    const pendDest=v.pendencia_para?` → ${SN[v.pendencia_para]||v.pendencia_para}`:'';
+    return `<div class="dvc ${cls}${isMine?' mine':''}"><div class="dvc-name">${v.nome}</div><div class="dvc-status ${sCls}">${sTxt}${pendDest}</div>${v.obs?`<div class="dvc-obs">"${v.obs}"</div>`:''}${v.ts?`<div class="dvc-ts">${v.ts}</div>`:''}</div>`;
   }).join('');
 
-  const myVote=SESSION?votes.find(v=>v.login===SESSION.email):null;
-  const isDir=SESSION&&(isAdmin()||SESSION.perfil==='Diretor'||SESSION.area==='Diretoria');
+  const myVote=SESSION?p.dir_votes.find(v=>v.login===SESSION.email):null;
+  const isCurUserDir=SESSION&&(SESSION.isDiretor||getDirectors().find(d=>d.email===SESSION.email));
   const isActive=p.status==='diretoria';
-  if(isDir&&isActive&&myVote&&!myVote.decision){g('my-vote-section').style.display='block';g('voted-msg').style.display='none';}
-  else if(isDir&&myVote&&myVote.decision){g('my-vote-section').style.display='none';g('voted-msg').style.display='block';g('voted-msg').innerHTML=`Você já votou: <strong style="color:${dcol(myVote.decision)}">${myVote.decision}</strong> em ${myVote.ts}`;}
-  else{g('my-vote-section').style.display='none';g('voted-msg').style.display='none';}
+  if(isCurUserDir&&isActive&&myVote&&!myVote.decision){
+    g('my-vote-section').style.display='block';g('voted-msg').style.display='none';
+    _selectedVoteOpt=null;
+    ['apr','pend','rep'].forEach(k=>g('dvopt-'+k)?.classList.remove('active'));
+    g('pend-dest-row').style.display='none';g('vote-confirm-wrap').style.display='none';
+  } else if(isCurUserDir&&myVote&&myVote.decision){
+    g('my-vote-section').style.display='none';g('voted-msg').style.display='block';
+    const pendInfo=myVote.decision==='Pendenciado'&&myVote.pendencia_para?` → <strong>${SN[myVote.pendencia_para]||myVote.pendencia_para}</strong>`:'';
+    g('voted-msg').innerHTML=`Você votou: <strong style="color:${dcol(myVote.decision)}">${myVote.decision}</strong>${pendInfo} em ${myVote.ts}${myVote.obs?` · "${myVote.obs}"`:''}.`;
+  } else {
+    g('my-vote-section').style.display='none';g('voted-msg').style.display='none';
+  }
   if(isActive){g('btn-avan').style.display='none';g('btn-devolver').style.display='none';}
 }
 
-function castVote(decision){
+function castVote(){
   const p=cur();if(!p||!SESSION)return;
-  if(!canEditStage('diretoria')||p.status!=='diretoria'){flash('Você não pode votar nesta etapa.','w');return;}
+  const decision=_selectedVoteOpt;
+  if(!decision){flash('Selecione uma opção antes de confirmar.','w');return;}
+  const isCurUserDir=SESSION.isDiretor||getDirectors().find(d=>d.email===SESSION.email);
+  if(!isCurUserDir||p.status!=='diretoria'){flash('Você não está habilitado para votar nesta etapa.','w');return;}
   let vote=p.dir_votes.find(v=>v.login===SESSION.email);
-  if(!vote){p.dir_votes.push({login:SESSION.email,nome:SESSION.nome,decision:null,obs:'',ts:null});vote=p.dir_votes[p.dir_votes.length-1];}
-  vote.decision=decision;vote.obs=r('dir-obs-mine');vote.ts=new Date().toLocaleString('pt-BR');
+  if(!vote){p.dir_votes.push({login:SESSION.email,nome:SESSION.nome,decision:null,obs:'',pendencia_para:null,ts:null});vote=p.dir_votes[p.dir_votes.length-1];}
+  const obs=r('dir-obs-mine');
+  if(decision==='Pendenciado'){
+    const dest=r('pend-dest');
+    if(!dest){flash('Selecione para qual etapa pendenciar.','w');return;}
+    if(!confirm(`Pendenciar este processo para ${SN[dest]||dest}?\n\nIsso retorna o processo e limpa os votos atuais.`))return;
+    vote.decision='Pendenciado';vote.obs=obs;vote.pendencia_para=dest;vote.ts=new Date().toLocaleString('pt-BR');
+    p.dir_votes=[]; // limpa votos para reapreciação
+    p.status=dest;
+    p.devolucoes=p.devolucoes||[];
+    p.devolucoes.push({from:'diretoria',to:dest,motivo:`[Diretoria - ${SESSION.nome}] ${obs||'Pendência sem comentário'}`,user:SESSION.nome,ts:new Date().toLocaleString('pt-BR')});
+    saveDB();
+    addNotif('stage',`⏸ <strong>${p.razao||p.id}</strong> pendenciado pela Diretoria para <strong>${SN[dest]}</strong>${obs?` · ${obs.slice(0,60)}`:''}`,STAGE_AREA[dest]||'Todas');
+    renderPipeline(p.status);renderSections(p);applyPermissions(p);
+    flash(`Processo pendenciado para ${SN[dest]}.`,'w');
+    return;
+  }
+  if(decision==='Reprovado'){
+    if(!confirm(`Reprovar este processo?\n\nEsta ação é imediata e registrada.`))return;
+    vote.decision='Reprovado';vote.obs=obs;vote.ts=new Date().toLocaleString('pt-BR');
+    p.status='reprovado';p.motivo_rep=obs||`Reprovado por ${SESSION.nome} em ${vote.ts}`;
+    saveDB();
+    addNotif('stage',`✕ <strong>${p.razao||p.id}</strong> REPROVADO por ${SESSION.nome}${obs?` · ${obs.slice(0,60)}`:''}` ,'Todas');
+    renderPipeline(p.status);renderSections(p);applyPermissions(p);
+    flash('Processo reprovado.','e');
+    return;
+  }
+  // Aprovado
+  vote.decision='Aprovado';vote.obs=obs;vote.ts=new Date().toLocaleString('pt-BR');
   saveDB();renderDirVotes(p);
+  const needed=getDirectors().length||3;
   const aprovados=p.dir_votes.filter(v=>v.decision==='Aprovado').length;
-  addNotif('stage',`🗳️ ${SESSION.nome} votou ${decision} em ${p.razao||p.id}`,'Diretoria');
-  if(aprovados>=3){p.status='aprovado';saveDB();addNotif('stage',`✅ ${p.razao||p.id} APROVADO por 3/3 sócios!`,'Todas');renderPipeline(p.status);renderSections(p);flash('Aprovado por unanimidade!');}
-  else flash(`Voto registrado · ${aprovados}/3 aprovações`);
+  addNotif('stage',`✓ ${SESSION.nome} aprovou <strong>${p.razao||p.id}</strong> (${aprovados}/${needed})`,'Diretoria');
+  if(aprovados>=needed){
+    p.status='aprovado';saveDB();
+    addNotif('stage',`✅ <strong>${p.razao||p.id}</strong> APROVADO por unanimidade da Diretoria!`,'Todas');
+    renderPipeline(p.status);renderSections(p);
+    flash(`Aprovado! Todos os ${needed} diretores votaram.`);
+  } else {
+    flash(`Voto registrado · ${aprovados}/${needed} aprovações`);
+  }
 }
 
 // ── PIPELINE ──
@@ -1546,7 +1636,23 @@ function clearNotifs(){if(notifTabMode==='mine'){myNotifs().forEach(n=>{const i=
 // ── SETTINGS ──
 function renderUsers(){
   const pb={Admin:'sb-diretoria',Diretor:'sb-diretoria',Coordenador:'sb-credito',Comercial:'sb-comercial'};
-  g('users-body').innerHTML=USERS.map((u,i)=>`<tr><td style="color:var(--blue);font-size:11px">${u.email}</td><td style="font-weight:600">${u.nome}</td><td><span class="sbadge ${pb[u.perfil]||'sb-comercial'}">${u.perfil}</span></td><td style="color:var(--txt2)">${u.area}</td><td><span style="font-size:10px;color:${u.active?'var(--ok)':'var(--txt3)'};">${u.active?'Ativo':'Pendente'}</span></td><td>${u.login!=='agadm'?`<button class="btn btn-danger btn-sm" onclick="rmUser(${i})">Remover</button>`:'<span style="font-size:10px;color:var(--txt3)">Master</span>'}</td></tr>`).join('');
+  g('users-body').innerHTML=USERS.map((u,i)=>{
+    const isDir=!!u.isDiretor;
+    return `<tr>
+      <td style="color:var(--blue);font-size:11px">${u.email}</td>
+      <td style="font-weight:600">${u.nome}${isDir?` <span class="dir-badge">DIRETOR</span>`:''}</td>
+      <td><span class="sbadge ${pb[u.perfil]||'sb-comercial'}">${u.perfil}</span></td>
+      <td style="color:var(--txt2)">${u.area}</td>
+      <td><span style="font-size:10px;color:${u.active?'var(--ok)':'var(--txt3)'};">${u.active?'Ativo':'Pendente'}</span></td>
+      <td><label class="dir-toggle" title="Marcar como Diretor votante na Diretoria"><input type="checkbox" ${isDir?'checked':''} onchange="toggleDiretor('${u.email}',this.checked)"> Sim</label></td>
+      <td>${u.login!=='agadm'?`<button class="btn btn-danger btn-sm" onclick="rmUser(${i})">Remover</button>`:'<span style="font-size:10px;color:var(--txt3)">Master</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+function toggleDiretor(email,val){
+  const u=USERS.find(x=>x.email===email);if(!u)return;
+  u.isDiretor=val;saveUsers();renderUsers();
+  flash(val?`${u.nome} habilitado como diretor votante.`:`${u.nome} removido da diretoria.`);
 }
 function renderInvites(){
   const active=INVITES.filter(i=>!i.used&&Date.now()<i.expires);
