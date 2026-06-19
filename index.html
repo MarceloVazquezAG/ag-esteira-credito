@@ -57,13 +57,14 @@ html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;color:var(--tx
 .sb-user-name{font-size:12px;font-weight:700;}
 .sb-user-role{font-size:10px;color:var(--txt2);margin-top:1px;}
 nav{padding:10px 8px;flex:1;overflow-y:auto;}
-.nav-sec{font-size:9px;color:var(--txt3);letter-spacing:1.3px;text-transform:uppercase;padding:11px 10px 5px;font-weight:700;}
-.nav-item{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:var(--rs);color:var(--txt2);cursor:pointer;transition:all var(--tr);margin-bottom:2px;font-size:12px;position:relative;}
+.nav-sec{font-size:9px;color:rgba(0,200,190,.35);letter-spacing:1.3px;text-transform:uppercase;padding:11px 10px 5px;font-weight:700;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:var(--rs);color:#7baabf;cursor:pointer;transition:all var(--tr);margin-bottom:2px;font-size:12px;position:relative;}
 .nav-item:hover{background:var(--blue-dim);color:var(--txt1);}
 .nav-item.active{background:var(--blue-dim);color:var(--blue);font-weight:600;}
 .nav-item.active::before{content:'';position:absolute;left:0;top:20%;height:60%;width:3px;background:var(--blue);border-radius:0 3px 3px 0;box-shadow:0 0 8px var(--blue-glow);}
-.nav-item svg{width:14px;height:14px;flex-shrink:0;}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;}
 .nb-badge{background:var(--danger);color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px;margin-left:auto;animation:badgePop .3s ease;}
+.nav-count{margin-left:auto;font-size:9px;font-weight:700;color:rgba(0,200,190,.5);background:rgba(0,200,190,.08);border:1px solid rgba(0,200,190,.15);padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;}
 .sb-footer{padding:12px 16px;border-top:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;}
 .sb-ver{font-size:9px;color:var(--txt3);}
 .logout-btn{font-size:10px;color:var(--txt2);cursor:pointer;border:none;background:none;padding:3px 8px;border-radius:4px;transition:color var(--tr);}
@@ -396,12 +397,12 @@ button:disabled{opacity:.45;cursor:not-allowed;filter:none!important;box-shadow:
       <span class="nb-badge" id="nb-mine" style="display:none"></span>
     </div>
     <div class="nav-sec">Filtrar</div>
-    <div class="nav-item" onclick="filterNav('comercial')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Comercial</div>
-    <div class="nav-item" onclick="filterNav('credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8L6 7h12z"/></svg>Crédito</div>
-    <div class="nav-item" onclick="filterNav('financeiro')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Financeiro</div>
-    <div class="nav-item" onclick="filterNav('diretoria')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Diretoria</div>
-    <div class="nav-item" onclick="filterNav('aprovado')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Aprovados</div>
-    <div class="nav-item" onclick="filterNav('reprovado')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Reprovados</div>
+    <div class="nav-item" onclick="filterNav('comercial')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Comercial<span class="nav-count" id="nc-comercial">0</span></div>
+    <div class="nav-item" onclick="filterNav('credito')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3H8L6 7h12z"/></svg>Crédito<span class="nav-count" id="nc-credito">0</span></div>
+    <div class="nav-item" onclick="filterNav('financeiro')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Financeiro<span class="nav-count" id="nc-financeiro">0</span></div>
+    <div class="nav-item" onclick="filterNav('diretoria')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Diretoria<span class="nav-count" id="nc-diretoria">0</span></div>
+    <div class="nav-item" onclick="filterNav('aprovado')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Aprovados<span class="nav-count" id="nc-aprovado">0</span></div>
+    <div class="nav-item" onclick="filterNav('reprovado')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Reprovados<span class="nav-count" id="nc-reprovado">0</span></div>
     <div class="nav-sec">Sistema</div>
     <div class="nav-item" id="nav-cfg" onclick="showView('config')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Configurações</div>
   </nav>
@@ -711,7 +712,7 @@ function queueCloudSave(){
   cloudTimer=setTimeout(saveCloudState,700);
 }
 
-function saveDB(){queueCloudSave();}
+function saveDB(){queueCloudSave();updateNavCounts();}
 function saveUsers(){queueCloudSave();}
 function saveInvites(){queueCloudSave();}
 function saveNotifs(){queueCloudSave();}
@@ -860,7 +861,7 @@ function startSession(user){
   g('login-screen').style.display='none';g('invite-screen').style.display='none';g('app').style.display='block';
   g('sb-uname').textContent=user.nome;g('sb-urole').textContent=user.perfil+' · '+user.area;
   g('nav-cfg').style.display=isAdmin()?'flex':'none';
-  updateMyBadge();renderNotifDot();renderLista();
+  updateMyBadge();renderNotifDot();renderLista();updateNavCounts();
 }
 
 function doLogout(){SESSION=null;sessionStorage.removeItem('ag_esteira_session');location.reload();}
@@ -1270,6 +1271,7 @@ function addNotif(type,msg,targetArea='Todas'){
 function myNotifs(){if(!SESSION)return NOTIFS;return NOTIFS.filter(n=>n.targetArea==='Todas'||n.targetArea===SESSION.area||SESSION.area==='Todas');}
 function renderNotifDot(){const u=myNotifs().filter(n=>!n.read).length;g('notif-dot').style.display=u?'block':'none';}
 function updateMyBadge(){const cnt=myNotifs().filter(n=>!n.read).length;const el=g('nb-mine');if(!el)return;el.style.display=cnt?'flex':'none';el.textContent=cnt>9?'9+':cnt;}
+function updateNavCounts(){['comercial','credito','financeiro','diretoria','aprovado','reprovado'].forEach(st=>{const el=g('nc-'+st);if(el)el.textContent=DB.filter(p=>p.status===st).length;});}
 function setNotifTab(mode){notifTabMode=mode;g('nt-mine').classList.toggle('on',mode==='mine');g('nt-all').classList.toggle('on',mode==='all');renderNotifPanel();}
 function renderNotifPanel(){
   const list=g('np-list');if(!list)return;
