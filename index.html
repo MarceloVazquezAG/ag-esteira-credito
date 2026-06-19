@@ -853,7 +853,7 @@ function persistLocal(){
   localStorage.setItem('ag_esteira_notifs',JSON.stringify(NOTIFS));
 }
 
-let _dbV=0,_dbSavedV=0;
+let _dbV=0,_dbSavedV=0,_cloudSaving=false;
 
 function queueCloudSave(){
   persistLocal();
@@ -885,7 +885,9 @@ async function loadCloudState(){
 }
 
 async function saveCloudState(){
+  if(_cloudSaving)return; // já tem um save em andamento; o finally vai reagendar se necessário
   cloudTimer=null;
+  _cloudSaving=true;
   const v=_dbV;
   try{
     const res=await fetch('/api/state',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({DB,USERS,INVITES,NOTIFS})});
@@ -893,6 +895,9 @@ async function saveCloudState(){
     else cloudOnline=false;
   }catch(e){
     cloudOnline=false;
+  }finally{
+    _cloudSaving=false;
+    if(_dbV>_dbSavedV)queueCloudSave(); // reagenda se novos dados chegaram durante o save
   }
 }
 
@@ -1744,9 +1749,18 @@ function startPolling(){
       const res=await fetch('/api/state',{cache:'no-store'});
       if(!res.ok)return;
       const state=await res.json();
-      // só atualiza DB e NOTIFS pelo polling — USERS e INVITES só no carregamento inicial
-      // só substitui DB se: sem uploads em andamento E todos os saves locais já confirmados na nuvem
-      if(Array.isArray(state.DB)&&state.DB.length>=DB.length&&uploadingCount===0&&_dbSavedV===_dbV){DB=state.DB;}
+      // só atualiza DB se: sem uploads, saves confirmados na nuvem, e sem processo aberto para edição
+      if(Array.isArray(state.DB)&&uploadingCount===0&&_dbSavedV===_dbV){
+        if(curId){
+          // processo aberto: atualiza outros processos da nuvem, mas PRESERVA o processo atual em memória
+          const myP=DB.find(x=>x.id===curId);
+          if(myP&&state.DB.length>=DB.length){
+            DB=state.DB.map(x=>x.id===curId?myP:x);
+          }
+        } else if(state.DB.length>=DB.length){
+          DB=state.DB;
+        }
+      }
       if(Array.isArray(state.NOTIFS)){NOTIFS=state.NOTIFS;}
       persistLocal();
       renderLista();updateNavCounts();updateMyBadge();renderNotifDot();
